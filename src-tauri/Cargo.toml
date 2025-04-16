@@ -1,0 +1,49 @@
+[package]
+name = "chanomhub"
+version = "0.5.0"
+description = "A Chanomhub App"
+authors = ["Chnaomhub"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "chanomhub_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+path = "src/lib.rs"
+
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.4.1", features = [] }
+tauri-plugin-notification = "2.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["multipart", "json", "stream"] }
+sha1 = "0.10"
+chrono = "0.4"
+hex = "0.4"
+tauri-plugin-dialog = "2.2.1"
+futures-util = "0.3.31"
+wry = "0.44"
+mega = "0.8.0"
+url = "2.5.4"
+tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread", "fs", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+scraper = "0.23.1"
+dirs = "5.0"
+glob = "0.3"
+shlex = "1.3.0"
+regex = "1.11.1"
+tauri-plugin-fs = "2.2.1"
+tauri-plugin-shell = "2.2.1"
+zip = "2.6.1"
+sevenz-rust = "0.6.1"
+unrar = "0.5.8"
+tauri-plugin-opener = "2.2.6"
+image = { version = "0.25.6", features = ["webp", "gif"] }

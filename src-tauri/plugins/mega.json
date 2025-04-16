@@ -1,0 +1,9 @@
+{
+  "id": "mega",
+  "name": "Mega Download Plugin",
+  "version": "1.0.0",
+  "supported_hosts": ["mega.nz", "mega.io", "*.mega.nz", "*.mega.io"],
+  "entry_point": "native",
+  "plugin_function": "download",
+  "type": "native"
+}

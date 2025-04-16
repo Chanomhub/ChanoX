@@ -1,0 +1,10 @@
+{
+  "id": "dropbox",
+  "name": "Dropbox Download Plugin",
+  "version": "1.0.0",
+  "supported_hosts": ["dropbox.com", "*.dropbox.com"],
+  "entry_point": "dropbox_plugin.py",
+  "type": "script",
+  "plugin_function": "download",
+  "language": "python"
+}

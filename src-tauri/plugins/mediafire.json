@@ -1,0 +1,15 @@
+{
+  "id": "mediafire",
+  "name": "MediaFire Downloader",
+  "version": "1.0.0",
+  "supported_hosts": [
+    "www.mediafire.com",
+    "mediafire.com"
+  ],
+  "entry_point": "mdrs  {{download_url}} -o {{output}}",
+  "type": "script",
+  "external_binary": true,
+  "language": "rust",
+  "plugin_function": "download",
+  "successful": "Successful downloads"
+}

@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+    themes: all;
+}
+
+
+select option {
+    color: #000000; /* สีตัวอักษรเป็นสีดำ */
+    background-color: #ffffff; /* สีพื้นหลังเป็นสีขาว */
+}
+
+select option:checked {
+    color: #ffffff; /* สีตัวอักษรเมื่อเลือกเป็นสีขาว */
+    background-color: #3b82f6; /* สีพื้นหลังเมื่อเลือกเป็นสีน้ำเงิน */
+}
+
+select {
+    color: #000000; /* สีตัวอักษรของ select */
+    background-color: #ffffff; /* สีพื้นหลังของ select */
+    border: 1px solid #d1d5db; /* ขอบ */
+    padding: 0.75rem; /* ช่องว่างภายใน */
+}
+
+select:focus {
+    outline: none;
+    ring: 2px solid #3b82f6; /* สีเมื่อ focus */
+}
