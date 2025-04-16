@@ -35,7 +35,7 @@ impl Default for AppState {
             token: None,
             cloudinary: None,
             download_dir: None,
-            games: None,  // เพิ่มฟิลด์นี้
+            games: None, 
         }
     }
 }
