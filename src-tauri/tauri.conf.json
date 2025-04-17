@@ -33,7 +33,7 @@
   },
   "bundle": {
     "resources": [
-      "plugins/*",
+      "plugins/**/*",
       "downloads"
     ],
     "active": true,
