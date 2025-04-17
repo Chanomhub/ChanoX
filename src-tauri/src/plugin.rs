@@ -1,10 +1,10 @@
-// plugin.rs
-
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use tokio_util::sync::CancellationToken; // Added import
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -12,6 +12,7 @@ pub enum PluginFunction {
     Download,
     Translate,
     Emulation,
+    Custom(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +33,8 @@ pub struct PluginManifest {
     pub successful: Option<String>,
     #[serde(default)]
     pub install_instruction: Option<String>,
+    #[serde(default)]
+    pub supported_actions: Vec<String>,
     #[serde(skip)]
     pub binary_path: Option<PathBuf>,
 }
@@ -159,31 +162,27 @@ impl PluginRegistry {
             .collect()
     }
 
-    pub fn find_download_plugin_for_host(&self, host: &str) -> Option<&PluginManifest> {
-        self.find_plugins_by_function(PluginFunction::Download)
-            .into_iter()
+    pub fn find_plugin_for_action(&self, action: &str, host: Option<&str>) -> Option<&PluginManifest> {
+        self.plugins
+            .values()
             .find(|manifest| {
-                manifest.supported_hosts.iter().any(|supported| {
-                    if supported.starts_with("*.") {
-                        host.to_lowercase().ends_with(&supported[1..].to_lowercase())
-                    } else {
-                        supported.to_lowercase() == host.to_lowercase()
-                    }
+                manifest.supported_actions.contains(&action.to_string()) &&
+                host.map_or(true, |h| {
+                    manifest.supported_hosts.iter().any(|supported| {
+                        if supported.starts_with("*.") {
+                            h.to_lowercase().ends_with(&supported[1..].to_lowercase())
+                        } else {
+                            supported.to_lowercase() == h.to_lowercase()
+                        }
+                    })
                 })
             })
-    }
-
-    pub fn find_translate_plugin(&self, _language: &str) -> Option<&PluginManifest> {
-        self.find_plugins_by_function(PluginFunction::Translate)
-            .into_iter()
-            .next()
     }
 
     pub fn get_plugin_ids(&self) -> Vec<&String> {
         self.plugins.keys().collect()
     }
 
-    // New methods to access plugins
     pub fn get_plugin(&self, plugin_id: &str) -> Option<&PluginManifest> {
         self.plugins.get(plugin_id)
     }
@@ -203,6 +202,7 @@ impl PluginRegistry {
             println!("    Supported hosts: {:?}", plugin.supported_hosts);
             println!("    Type: {}", plugin.plugin_type);
             println!("    Function: {:?}", plugin.plugin_function);
+            println!("    Supported actions: {:?}", plugin.supported_actions);
             if let Some(lang) = &plugin.language {
                 println!("    Language: {}", lang);
             }
@@ -213,6 +213,117 @@ impl PluginRegistry {
                 println!("    Install instruction: {}", instruction);
             }
         }
+    }
+}
+
+pub async fn execute_plugin<T: DeserializeOwned>(
+    manifest: &PluginManifest,
+    action: &str,
+    input: Value,
+    app: &tauri::AppHandle,
+    _cancel_token: CancellationToken,
+) -> Result<T, String> {
+    match manifest.plugin_type.as_str() {
+        "script" => {
+            let plugins_path = get_plugins_path(app)?;
+            let program = manifest.entry_point.split_whitespace().next().unwrap_or(&manifest.entry_point);
+            let script_path = plugins_path.join(program);
+
+            let mut cmd = if manifest.external_binary {
+                Command::new(manifest.binary_path.as_ref().ok_or("Missing binary path")?)
+            } else {
+                let interpreter = manifest.language.as_deref().and_then(|lang| match lang {
+                    "python" => Some("python"),
+                    "bash" => Some("bash"),
+                    "node" => Some("node"),
+                    _ => None,
+                });
+
+                if let Some(interp) = interpreter {
+                    Command::new(interp)
+                } else {
+                    Command::new(&script_path)
+                }
+            };
+
+            cmd.args(shlex::split(&manifest.entry_point).unwrap_or_default().get(1..).unwrap_or(&[]))
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+
+            let mut child = cmd.spawn().map_err(|e| format!("Failed to start plugin: {}", e))?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                serde_json::to_writer(stdin, &input)
+                    .map_err(|e| format!("Failed to write to plugin: {}", e))?;
+            }
+
+            let output = child
+                .wait_with_output()
+                .map_err(|e| format!("Plugin execution failed: {}", e))?;
+
+            let stdout = strip_ansi_codes(&String::from_utf8_lossy(&output.stdout));
+
+            serde_json::from_str(&stdout)
+                .map_err(|e| format!("Invalid plugin output: {} - Raw output: {}", e, stdout))
+        }
+        "command" => {
+            let command = manifest.entry_point
+                .replace("{{input}}", &serde_json::to_string(&input).unwrap_or_default());
+            let parts = shlex::split(&command).ok_or("Invalid command format")?;
+            let program = parts.get(0).ok_or("Empty command")?;
+            let args = parts.get(1..).unwrap_or(&[]);
+
+            let output = Command::new(program)
+                .args(args)
+                .output()
+                .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+            let stdout = strip_ansi_codes(&String::from_utf8_lossy(&output.stdout));
+
+            serde_json::from_str(&stdout)
+                .map_err(|e| format!("Invalid plugin output: {} - Raw output: {}", e, stdout))
+        }
+        _ => Err(format!("Unsupported plugin type: {}", manifest.plugin_type)),
+    }
+}
+
+fn strip_ansi_codes(input: &str) -> String {
+    let re = regex::Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
+    re.replace_all(input, "").to_string()
+}
+
+fn get_plugins_path(_app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let plugins_path = PathBuf::from(manifest_dir).join("plugins");
+        println!("Debug plugins path: {}", plugins_path.display());
+        if !plugins_path.exists() {
+            return Err(format!(
+                "Plugins directory {} does not exist",
+                plugins_path.display()
+            ));
+        }
+        Ok(plugins_path)
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let path = _app
+            .path()
+            .resource_dir()
+            .map_err(|_| "Cannot resolve resource directory".to_string())?
+            .join("plugins");
+
+        println!("Production plugins path: {}", path.display());
+        if !path.exists() {
+            return Err(format!(
+                "Plugins directory {} does not exist",
+                path.display()
+            ));
+        }
+        Ok(path)
     }
 }
 

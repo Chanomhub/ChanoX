@@ -5,21 +5,21 @@
 
 mod cloudinary;
 mod downloadmanager;
-mod mega;
 mod plugin;
 mod state;
 mod archiver;
 
-use plugin::{PluginRegistry, PluginManifest};
+use plugin::{PluginRegistry, PluginManifest, PluginFunction};
 use crate::state::{AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo};
 use tauri::{Manager, State, Emitter, AppHandle};
 use tauri_plugin_notification::NotificationExt;
-use downloadmanager::{download_file as download_file_manager, DownloadError};
+use downloadmanager::{execute_plugin as execute_download_plugin, DownloadError};
 use std::collections::HashMap;
 use std::sync::{Mutex, RwLock};
 use url::Url;
 use std::fs;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::process::Command;
 use tokio_util::sync::CancellationToken;
 
@@ -76,7 +76,17 @@ async fn download_file(
     let plugin = {
         let plugin_registry = plugin_registry.lock().map_err(|e| format!("Failed to lock plugin registry: {}", e))?;
         plugin_registry
-            .find_download_plugin_for_host(host)
+            .find_plugins_by_function(PluginFunction::Download)
+            .into_iter()
+            .find(|manifest| {
+                manifest.supported_hosts.iter().any(|supported| {
+                    if supported.starts_with("*.") {
+                        host.to_lowercase().ends_with(&supported[1..].to_lowercase())
+                    } else {
+                        supported.to_lowercase() == host.to_lowercase()
+                    }
+                })
+            })
             .cloned()
             .ok_or_else(|| format!("No download plugin found for host: {}", host))?
     };
@@ -91,13 +101,24 @@ async fn download_file(
         downloads.tokens.insert(download_id.clone(), cancel_token.clone());
     }
 
-    download_file_manager(url, filename, download_id, app, download_dir, &plugin, false, cancel_token)
-        .await
-        .map_err(|e| match e {
-            DownloadError::InvalidUrl(msg) => format!("Invalid URL: {}", msg),
-            DownloadError::UnsupportedProvider(msg) => format!("Unsupported provider: {}", msg),
-            DownloadError::DownloadFailed(msg) => format!("Download failed: {}", msg),
-        })
+    execute_download_plugin(
+        &plugin,
+        "download",
+        serde_json::json!({
+            "url": url,
+            "filename": filename,
+            "download_id": download_id,
+            "download_dir": download_dir
+        }),
+        &app,
+        cancel_token,
+    )
+    .await
+    .map_err(|e| match e {
+        DownloadError::InvalidUrl(msg) => format!("Invalid URL: {}", msg),
+        DownloadError::UnsupportedProvider(msg) => format!("Unsupported provider: {}", msg),
+        DownloadError::DownloadFailed(msg) => format!("Download failed: {}", msg),
+    })
 }
 
 #[tauri::command]
@@ -359,7 +380,11 @@ async fn download_from_url(
 
     let download_id = download_id.unwrap_or_else(|| format!("manual_download_{}", chrono::Utc::now().timestamp()));
 
-    let cancel_token = CancellationToken::new();
+    let state = app.state::<Mutex<AppState>>();
+    let download_dir = {
+        let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+        app_state.download_dir.clone().ok_or("Download directory not set")?
+    };
 
     {
         let active_downloads = app.state::<RwLock<ActiveDownloads>>();
@@ -374,7 +399,17 @@ async fn download_from_url(
                 .map_err(|e| format!("Invalid URL: {}", e))?;
 
             if let Some(host) = parsed_url.host_str() {
-                plugin_registry.find_download_plugin_for_host(host)
+                plugin_registry.find_plugins_by_function(PluginFunction::Download)
+                    .into_iter()
+                    .find(|manifest| {
+                        manifest.supported_hosts.iter().any(|supported| {
+                            if supported.starts_with("*.") {
+                                host.to_lowercase().ends_with(&supported[1..].to_lowercase())
+                            } else {
+                                supported.to_lowercase() == host.to_lowercase()
+                            }
+                        })
+                    })
                     .map(|plugin| plugin.id.clone())
             } else {
                 None
@@ -392,7 +427,7 @@ async fn download_from_url(
             provider,
         });
 
-        downloads.tokens.insert(download_id.clone(), cancel_token.clone());
+        downloads.tokens.insert(download_id.clone(), CancellationToken::new());
     }
 
     let app_handle = app.clone();
@@ -527,17 +562,17 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
 
     app.emit(
-            "cancel-download",
-            &serde_json::json!({ "download_id": download_id }),
-        ).map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
+        "cancel-download",
+        &serde_json::json!({ "download_id": download_id }),
+    ).map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
 
     if let Some(token) = downloads.tokens.remove(&download_id) {
-            token.cancel();
-            if let Some(download) = downloads.downloads.get_mut(&download_id) {
-                download.status = "cancelled".to_string();
-                download.progress = 0.0;
-                download.error = Some("Download cancelled by user".to_string());
-            }
+        token.cancel();
+        if let Some(download) = downloads.downloads.get_mut(&download_id) {
+            download.status = "cancelled".to_string();
+            download.progress = 0.0;
+            download.error = Some("Download cancelled by user".to_string());
+        }
 
         show_download_notification(
             app.clone(),
@@ -656,6 +691,26 @@ fn register_manual_download(
     Ok(())
 }
 
+#[tauri::command]
+async fn execute_plugin_action(
+    plugin_id: String,
+    action: String,
+    input: Value,
+    app: AppHandle,
+    plugin_registry: State<'_, Mutex<PluginRegistry>>,
+) -> Result<Value, String> {
+    let plugin = {
+        let registry = plugin_registry.lock().map_err(|e| format!("Failed to lock registry: {}", e))?;
+        registry.get_plugin(&plugin_id)
+            .cloned()
+            .ok_or_else(|| format!("Plugin {} not found", plugin_id))?
+    };
+
+    plugin::execute_plugin(&plugin, &action, input, &app, CancellationToken::new())
+        .await
+        .map_err(|e| format!("Plugin execution failed: {}", e))
+}
+
 fn main() {
     let plugin_registry = PluginRegistry::new();
 
@@ -739,7 +794,8 @@ fn main() {
             check_path_exists,
             save_games,
             get_saved_games,
-            register_manual_download
+            register_manual_download,
+            execute_plugin_action
         ])
         .on_window_event(|app, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

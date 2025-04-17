@@ -26,7 +26,7 @@ ChanomHub Desktop provides a native application experience for interacting with 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ChanomHub/ChanomHub.git
+   git clone https://github.com/Chanomhub/Chanomhub-Desktop.git
    cd ChanomHub
    ```
 

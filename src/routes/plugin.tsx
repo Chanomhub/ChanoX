@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
-import { FiPlus, FiTrash2, FiDownload, FiRefreshCw, FiCheck, FiX, FiInfo } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiDownload, FiRefreshCw, FiCheck, FiX, FiInfo, FiPlay } from 'react-icons/fi';
 
-// Updated Plugin interface to match Rust PluginManifest with explicit type values
+// Updated Plugin interface to match Rust PluginManifest
 interface PluginManifest {
     id: string;
     name: string;
     version: string;
     supported_hosts: string[];
     entry_point: string;
-    type: 'script' | 'native' | 'other';
-    plugin_function: 'download' | 'translate' | 'emulation';
+    type: 'script' | 'command';
+    plugin_function: 'download' | 'translate' | 'emulation' | string;
     external_binary?: boolean;
     language?: string;
     successful?: string;
     install_instruction?: string;
+    supported_actions: string[];
 }
 
 const PluginManager: React.FC = () => {
@@ -26,6 +27,8 @@ const PluginManager: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [newPluginManifest, setNewPluginManifest] = useState<string>('');
     const [showAddForm, setShowAddForm] = useState(false);
+    const [testAction, setTestAction] = useState<string>('');
+    const [testInput, setTestInput] = useState<string>('');
 
     useEffect(() => {
         loadPlugins();
@@ -36,11 +39,9 @@ const PluginManager: React.FC = () => {
         setError(null);
 
         try {
-            // Fetch plugin IDs from backend
             const pluginIds: string[] = await invoke('get_plugin_ids');
             setPlugins(pluginIds);
 
-            // Fetch all plugin details at once
             const detailsMap: Record<string, PluginManifest> = await invoke('get_all_plugins');
             setPluginDetails(detailsMap);
         } catch (e) {
@@ -62,37 +63,37 @@ const PluginManager: React.FC = () => {
                 return;
             }
 
-            // Validate required fields
             if (
                 !manifest.id ||
                 !manifest.name ||
                 !manifest.supported_hosts ||
                 !manifest.entry_point ||
                 !manifest.type ||
-                !manifest.plugin_function
+                !manifest.plugin_function ||
+                !manifest.supported_actions
             ) {
-                setError('Plugin manifest is missing required fields (id, name, supported_hosts, entry_point, type, plugin_function)');
+                setError('Plugin manifest is missing required fields (id, name, supported_hosts, entry_point, type, plugin_function, supported_actions)');
                 return;
             }
 
-            // Validate plugin_function
             const validFunctions = ['download', 'translate', 'emulation'];
-            if (!validFunctions.includes(manifest.plugin_function)) {
-                setError(`Invalid plugin_function. Must be one of: ${validFunctions.join(', ')}`);
+            if (!validFunctions.includes(manifest.plugin_function) && !manifest.plugin_function.startsWith('custom_')) {
+                setError(`Invalid plugin_function. Must be one of: ${validFunctions.join(', ')} or start with 'custom_'`);
                 return;
             }
 
-            // Validate type
-            const validTypes = ['script', 'native', 'other'];
+            const validTypes = ['script', 'command'];
             if (!validTypes.includes(manifest.type)) {
                 setError(`Invalid type. Must be one of: ${validTypes.join(', ')}`);
                 return;
             }
 
-            // Send the manifest to the backend
-            await invoke('add_plugin', { manifest });
+            if (!Array.isArray(manifest.supported_actions) || manifest.supported_actions.length === 0) {
+                setError('supported_actions must be a non-empty array of strings');
+                return;
+            }
 
-            // Reload plugins after adding
+            await invoke('add_plugin', { manifest });
             await loadPlugins();
 
             setNewPluginManifest('');
@@ -105,10 +106,7 @@ const PluginManager: React.FC = () => {
     const handleRemovePlugin = async (pluginId: string) => {
         if (window.confirm(`Are you sure you want to remove the plugin "${pluginId}"?`)) {
             try {
-                // Call backend to remove plugin
                 await invoke('remove_plugin', { pluginId });
-
-                // Update local state
                 setPlugins(plugins.filter((id) => id !== pluginId));
                 const newDetails = { ...pluginDetails };
                 delete newDetails[pluginId];
@@ -136,16 +134,35 @@ const PluginManager: React.FC = () => {
         }
     };
 
+    const handleTestAction = async (pluginId: string, action: string, input: string) => {
+        try {
+            let parsedInput: any;
+            try {
+                parsedInput = input ? JSON.parse(input) : {};
+            } catch (e) {
+                setError('Invalid JSON input for action');
+                return;
+            }
+
+            const result = await invoke('execute_plugin_action', {
+                pluginId,
+                action,
+                input: parsedInput,
+            });
+            alert(`Action result: ${JSON.stringify(result, null, 2)}`);
+        } catch (e) {
+            setError(`Failed to execute action: ${e}`);
+        }
+    };
+
     const getPluginStatus = (pluginId: string) => {
         const plugin = pluginDetails[pluginId];
         if (!plugin) return 'Unknown';
 
-        // Native plugins are always Active since they run on the backend
-        if (plugin.type === 'native') {
+        if (plugin.type === 'command') {
             return 'Active';
         }
 
-        // Non-native plugins
         if (plugin.external_binary && !plugin.successful) {
             return `Missing Binary${plugin.install_instruction ? ` (${plugin.install_instruction})` : ''}`;
         }
@@ -156,17 +173,14 @@ const PluginManager: React.FC = () => {
     const getHostSupport = (hosts: string[]) => {
         if (!hosts || hosts.length === 0) return 'None';
 
-        // แยก wildcard และ non-wildcard hosts
         const wildcardHosts = hosts.filter((h) => h.startsWith('*.'));
         const regularHosts = hosts.filter((h) => !h.startsWith('*.'));
 
-        // ถ้ามี regular hosts น้อยกว่าหรือเท่ากับ 3 และไม่มี wildcard มากเกินไป
         if (regularHosts.length <= 3 && wildcardHosts.length <= 1) {
             const allHosts = [...regularHosts, ...wildcardHosts];
             return allHosts.join(', ');
         }
 
-        // ถ้ามี hosts เยอะเกินไป (รวม wildcard และ regular)
         if (hosts.length > 3) {
             const displayedHosts = regularHosts.slice(0, 3);
             const wildcardSummary = wildcardHosts.length > 0 ? ' + Wildcards' : '';
@@ -174,7 +188,6 @@ const PluginManager: React.FC = () => {
             return `${displayedHosts.join(', ')}${wildcardSummary}${moreCount > 0 ? ` +${moreCount} more` : ''}`;
         }
 
-        // กรณีทั่วไป
         return [...regularHosts, ...wildcardHosts].join(', ');
     };
 
@@ -223,7 +236,7 @@ const PluginManager: React.FC = () => {
                         value={newPluginManifest}
                         onChange={(e) => setNewPluginManifest(e.target.value)}
                         className="w-full h-64 p-2 border rounded font-mono text-sm mb-3 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                        placeholder={`{\n  "id": "plugin-id",\n  "name": "Plugin Name",\n  "version": "1.0.0",\n  "supported_hosts": ["example.com"],\n  "entry_point": "script.js",\n  "type": "script",\n  "plugin_function": "download",\n  "external_binary": false,\n  "language": "javascript",\n  "install_instruction": "Install with: npm install plugin-package"\n}`}
+                        placeholder={`{\n  "id": "plugin-id",\n  "name": "Plugin Name",\n  "version": "1.0.0",\n  "supported_hosts": ["example.com"],\n  "entry_point": "script.py",\n  "type": "script",\n  "plugin_function": "download",\n  "supported_actions": ["download", "upload"],\n  "external_binary": false,\n  "language": "python",\n  "install_instruction": "Install with: pip install plugin-package"\n}`}
                     />
                     <div className="flex justify-end space-x-2">
                         <button
@@ -265,8 +278,9 @@ const PluginManager: React.FC = () => {
                             <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Type</th>
                             <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Function</th>
                             <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Supported Hosts</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Status</th>
                             <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Actions</th>
+                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Status</th>
+                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Controls</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -287,50 +301,51 @@ const PluginManager: React.FC = () => {
                                         {plugin?.version || 'Unknown'}
                                     </td>
                                     <td className="py-3 px-4">
-                                            <span
-                                                className={`px-2 py-1 rounded-full text-xs ${
-                                                    plugin?.type === 'script'
-                                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                                        : plugin?.type === 'native'
-                                                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                                }`}
-                                            >
-                                                {plugin?.type || 'Unknown'}
-                                            </span>
+                                        <span
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                                plugin?.type === 'script'
+                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                                            }`}
+                                        >
+                                            {plugin?.type || 'Unknown'}
+                                        </span>
                                     </td>
                                     <td className="py-3 px-4">
-                                            <span
-                                                className={`px-2 py-1 rounded-full text-xs ${
-                                                    plugin?.plugin_function === 'download'
-                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                        : plugin?.plugin_function === 'translate'
-                                                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                                                }`}
-                                            >
-                                                {plugin?.plugin_function || 'Unknown'}
-                                            </span>
+                                        <span
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                                plugin?.plugin_function === 'download'
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                    : plugin?.plugin_function === 'translate'
+                                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                                        : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                            }`}
+                                        >
+                                            {plugin?.plugin_function || 'Unknown'}
+                                        </span>
                                     </td>
                                     <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
                                         {plugin?.supported_hosts ? getHostSupport(plugin.supported_hosts) : 'None'}
                                     </td>
+                                    <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
+                                        {plugin?.supported_actions?.join(', ') || 'None'}
+                                    </td>
                                     <td className="py-3 px-4">
-                                            <span
-                                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                                                    getPluginStatus(pluginId) === 'Active'
-                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                        : getPluginStatus(pluginId).startsWith('Missing Binary')
-                                                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                                }`}
-                                            >
-                                                {getPluginStatus(pluginId) === 'Active' && <FiCheck className="mr-1" />}
-                                                {getPluginStatus(pluginId).startsWith('Missing Binary') && (
-                                                    <FiX className="mr-1" />
-                                                )}
-                                                {getPluginStatus(pluginId)}
-                                            </span>
+                                        <span
+                                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                                                getPluginStatus(pluginId) === 'Active'
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                    : getPluginStatus(pluginId).startsWith('Missing Binary')
+                                                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                            }`}
+                                        >
+                                            {getPluginStatus(pluginId) === 'Active' && <FiCheck className="mr-1" />}
+                                            {getPluginStatus(pluginId).startsWith('Missing Binary') && (
+                                                <FiX className="mr-1" />
+                                            )}
+                                            {getPluginStatus(pluginId)}
+                                        </span>
                                     </td>
                                     <td className="py-3 px-4 flex space-x-2">
                                         <button
@@ -350,6 +365,35 @@ const PluginManager: React.FC = () => {
                                             >
                                                 <FiInfo size={18} />
                                             </button>
+                                        )}
+                                        {plugin?.supported_actions?.length > 0 && (
+                                            <div className="flex space-x-2">
+                                                <select
+                                                    onChange={(e) => setTestAction(e.target.value)}
+                                                    className="select select-sm"
+                                                >
+                                                    <option value="">Select Action</option>
+                                                    {plugin.supported_actions.map((action) => (
+                                                        <option key={action} value={action}>
+                                                            {action}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    placeholder="JSON input"
+                                                    onChange={(e) => setTestInput(e.target.value)}
+                                                    className="input input-sm input-bordered w-32"
+                                                />
+                                                <button
+                                                    onClick={() => handleTestAction(pluginId, testAction, testInput)}
+                                                    className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                    title="Test Action"
+                                                    disabled={!testAction}
+                                                >
+                                                    <FiPlay size={18} />
+                                                </button>
+                                            </div>
                                         )}
                                     </td>
                                 </tr>
