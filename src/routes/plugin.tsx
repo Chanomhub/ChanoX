@@ -4,7 +4,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { FiPlus, FiTrash2, FiDownload, FiRefreshCw, FiCheck, FiX, FiInfo, FiPlay } from 'react-icons/fi';
 
-// Updated Plugin interface to match Rust PluginManifest
 interface PluginManifest {
     id: string;
     name: string;
@@ -63,21 +62,21 @@ const PluginManager: React.FC = () => {
                 return;
             }
 
-            if (
-                !manifest.id ||
-                !manifest.name ||
-                !manifest.supported_hosts ||
-                !manifest.entry_point ||
-                !manifest.type ||
-                !manifest.plugin_function ||
-                !manifest.supported_actions
-            ) {
-                setError('Plugin manifest is missing required fields (id, name, supported_hosts, entry_point, type, plugin_function, supported_actions)');
+            const requiredFields = [
+                'id', 'name', 'supported_hosts', 'entry_point',
+                'type', 'plugin_function', 'supported_actions'
+            ];
+
+            const missingFields = requiredFields.filter(field => !manifest[field as keyof PluginManifest]);
+
+            if (missingFields.length > 0) {
+                setError(`Plugin manifest is missing required fields: ${missingFields.join(', ')}`);
                 return;
             }
 
             const validFunctions = ['download', 'translate', 'emulation'];
-            if (!validFunctions.includes(manifest.plugin_function) && !manifest.plugin_function.startsWith('custom_')) {
+            if (!validFunctions.includes(manifest.plugin_function) &&
+                !manifest.plugin_function.startsWith('custom_')) {
                 setError(`Invalid plugin_function. Must be one of: ${validFunctions.join(', ')} or start with 'custom_'`);
                 return;
             }
@@ -173,12 +172,11 @@ const PluginManager: React.FC = () => {
     const getHostSupport = (hosts: string[]) => {
         if (!hosts || hosts.length === 0) return 'None';
 
-        const wildcardHosts = hosts.filter((h) => h.startsWith('*.'));
-        const regularHosts = hosts.filter((h) => !h.startsWith('*.'));
+        const wildcardHosts = hosts.filter(h => h.startsWith('*.'));
+        const regularHosts = hosts.filter(h => !h.startsWith('*.'));
 
         if (regularHosts.length <= 3 && wildcardHosts.length <= 1) {
-            const allHosts = [...regularHosts, ...wildcardHosts];
-            return allHosts.join(', ');
+            return [...regularHosts, ...wildcardHosts].join(', ');
         }
 
         if (hosts.length > 3) {
@@ -189,6 +187,70 @@ const PluginManager: React.FC = () => {
         }
 
         return [...regularHosts, ...wildcardHosts].join(', ');
+    };
+
+    const renderStatusBadge = (status: string) => {
+        let colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        let icon = null;
+
+        if (status === 'Active') {
+            colorClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            icon = <FiCheck className="mr-1" />;
+        } else if (status.startsWith('Missing Binary')) {
+            colorClass = 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            icon = <FiX className="mr-1" />;
+        }
+
+        return (
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${colorClass}`}>
+        {icon}
+                {status}
+      </span>
+        );
+    };
+
+    const renderTypeBadge = (type?: string) => {
+        const colorClass = type === 'script'
+            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+
+        return (
+            <span className={`px-2 py-1 rounded-full text-xs ${colorClass}`}>
+        {type || 'Unknown'}
+      </span>
+        );
+    };
+
+    const renderFunctionBadge = (func?: string) => {
+        let colorClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+
+        if (func === 'download') {
+            colorClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        } else if (func === 'translate') {
+            colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        }
+
+        return (
+            <span className={`px-2 py-1 rounded-full text-xs ${colorClass}`}>
+        {func || 'Unknown'}
+      </span>
+        );
+    };
+
+    const renderPluginManifestTemplate = () => {
+        return `{
+  "id": "plugin-id",
+  "name": "Plugin Name",
+  "version": "1.0.0",
+  "supported_hosts": ["example.com"],
+  "entry_point": "script.py",
+  "type": "script",
+  "plugin_function": "download",
+  "supported_actions": ["download", "upload"],
+  "external_binary": false,
+  "language": "python",
+  "install_instruction": "Install with: pip install plugin-package"
+}`;
     };
 
     return (
@@ -236,7 +298,7 @@ const PluginManager: React.FC = () => {
                         value={newPluginManifest}
                         onChange={(e) => setNewPluginManifest(e.target.value)}
                         className="w-full h-64 p-2 border rounded font-mono text-sm mb-3 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                        placeholder={`{\n  "id": "plugin-id",\n  "name": "Plugin Name",\n  "version": "1.0.0",\n  "supported_hosts": ["example.com"],\n  "entry_point": "script.py",\n  "type": "script",\n  "plugin_function": "download",\n  "supported_actions": ["download", "upload"],\n  "external_binary": false,\n  "language": "python",\n  "install_instruction": "Install with: pip install plugin-package"\n}`}
+                        placeholder={renderPluginManifestTemplate()}
                     />
                     <div className="flex justify-end space-x-2">
                         <button
@@ -301,28 +363,10 @@ const PluginManager: React.FC = () => {
                                         {plugin?.version || 'Unknown'}
                                     </td>
                                     <td className="py-3 px-4">
-                                        <span
-                                            className={`px-2 py-1 rounded-full text-xs ${
-                                                plugin?.type === 'script'
-                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                            }`}
-                                        >
-                                            {plugin?.type || 'Unknown'}
-                                        </span>
+                                        {renderTypeBadge(plugin?.type)}
                                     </td>
                                     <td className="py-3 px-4">
-                                        <span
-                                            className={`px-2 py-1 rounded-full text-xs ${
-                                                plugin?.plugin_function === 'download'
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    : plugin?.plugin_function === 'translate'
-                                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                                        : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                                            }`}
-                                        >
-                                            {plugin?.plugin_function || 'Unknown'}
-                                        </span>
+                                        {renderFunctionBadge(plugin?.plugin_function)}
                                     </td>
                                     <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
                                         {plugin?.supported_hosts ? getHostSupport(plugin.supported_hosts) : 'None'}
@@ -331,21 +375,7 @@ const PluginManager: React.FC = () => {
                                         {plugin?.supported_actions?.join(', ') || 'None'}
                                     </td>
                                     <td className="py-3 px-4">
-                                        <span
-                                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                                                getPluginStatus(pluginId) === 'Active'
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    : getPluginStatus(pluginId).startsWith('Missing Binary')
-                                                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                            }`}
-                                        >
-                                            {getPluginStatus(pluginId) === 'Active' && <FiCheck className="mr-1" />}
-                                            {getPluginStatus(pluginId).startsWith('Missing Binary') && (
-                                                <FiX className="mr-1" />
-                                            )}
-                                            {getPluginStatus(pluginId)}
-                                        </span>
+                                        {renderStatusBadge(getPluginStatus(pluginId))}
                                     </td>
                                     <td className="py-3 px-4 flex space-x-2">
                                         <button
@@ -357,9 +387,7 @@ const PluginManager: React.FC = () => {
                                         </button>
                                         {plugin?.install_instruction && (
                                             <button
-                                                onClick={() =>
-                                                    alert(`Install instruction: ${plugin.install_instruction}`)
-                                                }
+                                                onClick={() => alert(`Install instruction: ${plugin.install_instruction}`)}
                                                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                                                 title="View Install Instruction"
                                             >

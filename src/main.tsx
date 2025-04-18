@@ -8,7 +8,6 @@ import ErrorPage from "./error-page";
 
 import Home from "./routes/home";
 import CreateArticle from "./routes/CreateArticle"; // New import for article detail page
-import Chat from "./routes/chat";
 import Settings from "./routes/settings";
 import { TauriProvider } from "./context/TauriProvider";
 import "./index.css";
@@ -47,10 +46,6 @@ const router = createBrowserRouter([
             {
                 path: "/createarticle",
                 element: <CreateArticle />,
-            },
-            {
-                path: "/chat",
-                element: <Chat />,
             },
 
             {
