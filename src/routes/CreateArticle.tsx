@@ -1,14 +1,13 @@
-// src/CreateArticle.tsx
-import React, { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
+import React, {useState} from 'react';
+import {invoke} from '@tauri-apps/api/core';
+import {open} from '@tauri-apps/plugin-dialog';
 import ArticleForm from './components/articles/ArticleForm';
 import DownloadForm from './components/articles/DownloadForm';
 import SummaryStep from './components/articles/SummaryStep';
 import StepIndicator from './components/articles/StepIndicator';
 import ErrorAlert from './components/articles/ErrorAlert';
 import LoadingIndicator from './components/articles/LoadingIndicator';
-import { ArticleFormData, DownloadData, ArticlePayload } from './components/articles/types';
+import {ArticleFormData, ArticlePayload, DownloadData} from './components/articles/types';
 
 const CreateArticle: React.FC = () => {
     const [step, setStep] = useState<number>(1);
@@ -67,7 +66,7 @@ const CreateArticle: React.FC = () => {
                 console.log('File selection canceled by user');
                 return;
             }
-            if (name === 'mainImageFile' && typeof selected === 'string') {
+            if (name === 'mainImageFile') {
                 setFormData((prev) => ({
                     ...prev,
                     mainImageFile: selected,
@@ -96,11 +95,10 @@ const CreateArticle: React.FC = () => {
                 setError('Cloudinary configuration not set. Please configure it in Settings.');
                 throw new Error('Cloudinary configuration not set');
             }
-            const secureUrl = await invoke<string>('upload_to_cloudinary', {
+            return await invoke<string>('upload_to_cloudinary', {
                 filePath,
                 publicId,
             });
-            return secureUrl;
         } catch (err) {
             console.error('Failed to upload to Cloudinary:', err);
             throw new Error(`Upload failed: ${err}`);
