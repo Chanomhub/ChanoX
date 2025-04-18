@@ -11,8 +11,9 @@ interface ArticleFormData {
     categoryList: string;
     platformList: string;
     status: "DRAFT" | "PUBLISHED";
-    mainImage: string;
-    images: string;
+    engine?: "RENPY" | "RPGM" | "UNITY" | "UNREAL" | ""; // Optional, allows empty string
+    mainImage: string; // Required
+    images: string; // Optional
     mainImageFile?: string;
     additionalImageFiles: string[];
 }
@@ -34,6 +35,7 @@ interface ArticlePayload {
         status: string;
         mainImage: string;
         images: string[];
+        engine?: string; // Optional in payload
     };
 }
 
@@ -105,16 +107,14 @@ const ArticleForm: React.FC<{
           isLoading,
       }) => {
     return (
-        <div className="max-w-4xl mx-auto  shadow-lg rounded-xl p-8 space-y-8">
-            <h2 className="text-3xl font-bold text-center">
-                กรอกข้อมูลบทความ
-            </h2>
+        <div className="max-w-4xl mx-auto shadow-lg rounded-xl p-8 space-y-8">
+            <h2 className="text-3xl font-bold text-center">กรอกข้อมูลบทความ</h2>
             <form>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* ส่วนข้อมูลหลัก */}
                     <div className="space-y-6">
                         <div className="flex flex-col">
-                            <label htmlFor="title" className="mb-2 font-semibold ">
+                            <label htmlFor="title" className="mb-2 font-semibold">
                                 หัวข้อ
                             </label>
                             <input
@@ -129,10 +129,7 @@ const ArticleForm: React.FC<{
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label
-                                htmlFor="description"
-                                className="mb-2 font-semibold "
-                            >
+                            <label htmlFor="description" className="mb-2 font-semibold">
                                 คำอธิบาย
                             </label>
                             <textarea
@@ -146,7 +143,7 @@ const ArticleForm: React.FC<{
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label htmlFor="body" className="mb-2 font-semibold ">
+                            <label htmlFor="body" className="mb-2 font-semibold">
                                 เนื้อหา
                             </label>
                             <textarea
@@ -164,7 +161,7 @@ const ArticleForm: React.FC<{
                     {/* ส่วนข้อมูลเพิ่มเติม */}
                     <div className="space-y-6">
                         <div className="flex flex-col">
-                            <label htmlFor="tagList" className="mb-2 font-semibold ">
+                            <label htmlFor="tagList" className="mb-2 font-semibold">
                                 แท็ก (คั่นด้วยคอมม่า)
                             </label>
                             <input
@@ -178,10 +175,7 @@ const ArticleForm: React.FC<{
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label
-                                htmlFor="categoryList"
-                                className="mb-2 font-semibold "
-                            >
+                            <label htmlFor="categoryList" className="mb-2 font-semibold">
                                 หมวดหมู่ (คั่นด้วยคอมม่า)
                             </label>
                             <input
@@ -195,10 +189,7 @@ const ArticleForm: React.FC<{
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label
-                                htmlFor="platformList"
-                                className="mb-2 font-semibold "
-                            >
+                            <label htmlFor="platformList" className="mb-2 font-semibold">
                                 แพลตฟอร์ม (คั่นด้วยคอมม่า)
                             </label>
                             <input
@@ -212,7 +203,7 @@ const ArticleForm: React.FC<{
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label htmlFor="status" className="mb-2 font-semibold ">
+                            <label htmlFor="status" className="mb-2 font-semibold">
                                 สถานะ
                             </label>
                             <select
@@ -226,12 +217,27 @@ const ArticleForm: React.FC<{
                                 <option value="PUBLISHED">เผยแพร่</option>
                             </select>
                         </div>
+                        <div className="flex flex-col">
+                            <label htmlFor="engine" className="mb-2 font-semibold">
+                                Engine (ถ้าไม่ทราบให้ปล่อยว่าง)
+                            </label>
+                            <select
+                                id="engine"
+                                name="engine"
+                                value={formData.engine || ""}
+                                onChange={handleChange}
+                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">ไม่ระบุ</option>
+                                <option value="RENPY">Ren'Py</option>
+                                <option value="RPGM">RPG Maker</option>
+                                <option value="UNITY">Unity</option>
+                                <option value="UNREAL">Unreal Engine</option>
+                            </select>
+                        </div>
                         {formData.status === "PUBLISHED" && (
                             <div className="flex flex-col">
-                                <label
-                                    htmlFor="publishNote"
-                                    className="mb-2 font-semibold "
-                                >
+                                <label htmlFor="publishNote" className="mb-2 font-semibold">
                                     หมายเหตุสำหรับการเผยแพร่
                                 </label>
                                 <textarea
@@ -247,25 +253,26 @@ const ArticleForm: React.FC<{
                         {/* ส่วนการเลือกภาพ */}
                         <div className="space-y-4">
                             <ImageSelector
-                                label="รูปภาพหลัก"
+                                label="รูปภาพหลัก (จำเป็น)"
                                 imageUrl={formData.mainImage}
                                 imagePath={formData.mainImageFile}
                                 name="mainImage"
                                 selectType="mainImageFile"
                                 handleChange={handleChange}
                                 handleFileSelect={handleFileSelect}
-                                placeholder="หรือระบุ URL"
+                                placeholder="ระบุ URL หรือเลือกไฟล์"
                                 isDisabled={!!formData.mainImageFile}
+                                required={true} // Mark as required
                             />
                             <ImageSelector
-                                label="รูปภาพเพิ่มเติม"
+                                label="รูปภาพเพิ่มเติม (ไม่จำเป็น)"
                                 imageUrl={formData.images}
                                 imagePaths={formData.additionalImageFiles}
                                 name="images"
                                 selectType="additionalImageFiles"
                                 handleChange={handleChange}
                                 handleFileSelect={handleFileSelect}
-                                placeholder="หรือระบุ URLs (คั่นด้วยคอมม่า)"
+                                placeholder="ระบุ URLs (คั่นด้วยคอมม่า, ถ้ามี)"
                                 isDisabled={formData.additionalImageFiles.length > 0}
                                 isMultiple={true}
                             />
@@ -302,6 +309,7 @@ const ImageSelector: React.FC<{
     placeholder: string;
     isDisabled: boolean;
     isMultiple?: boolean;
+    required?: boolean; // Add required prop
 }> = ({
           label,
           imageUrl,
@@ -313,7 +321,8 @@ const ImageSelector: React.FC<{
           handleFileSelect,
           placeholder,
           isDisabled,
-          isMultiple = false
+          isMultiple = false,
+          required = false,
       }) => {
     return (
         <div className="form-control space-y-2">
@@ -334,6 +343,7 @@ const ImageSelector: React.FC<{
                     disabled={isDisabled}
                     placeholder={placeholder}
                     className="input input-bordered input-sm flex-1"
+                    required={required} // Apply required attribute for mainImage
                 />
             </div>
             {imagePath && (
@@ -490,6 +500,7 @@ const CreateArticle: React.FC = () => {
         categoryList: "",
         platformList: "",
         status: "DRAFT",
+        engine: "", // Default to empty string
         mainImage: "",
         images: "",
         additionalImageFiles: [],
@@ -608,6 +619,11 @@ const CreateArticle: React.FC = () => {
         setError(null);
         setResponse(null);
         try {
+            // Validate mainImage (required)
+            if (!formData.mainImage && !formData.mainImageFile) {
+                throw new Error("กรุณาระบุรูปภาพหลัก (ต้องใส่ URL หรือเลือกไฟล์)");
+            }
+
             const tokenResult = await invoke<string | null>("get_token");
             if (!tokenResult) {
                 throw new Error("No authentication token found. Please login first.");
@@ -635,8 +651,9 @@ const CreateArticle: React.FC = () => {
                     categoryList: formData.categoryList.split(",").map((c) => c.trim()).filter(Boolean),
                     platformList: formData.platformList.split(",").map((p) => p.trim()).filter(Boolean),
                     status: formData.status,
-                    mainImage: mainImageUrl || "",
-                    images: imageUrls,
+                    mainImage: mainImageUrl || "", // Should always have a value due to validation
+                    images: imageUrls, // Optional, can be empty
+                    engine: formData.engine || "", // Optional, defaults to empty string
                 },
             };
 
@@ -734,6 +751,7 @@ const CreateArticle: React.FC = () => {
             categoryList: "",
             platformList: "",
             status: "DRAFT",
+            engine: "", // Reset to empty string
             mainImage: "",
             images: "",
             additionalImageFiles: [],
