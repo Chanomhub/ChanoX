@@ -12,6 +12,7 @@ export interface ArticleFormData {
     images: string;
     mainImageFile?: string;
     additionalImageFiles: string[];
+    version?: string;
 }
 
 export interface DownloadData {
@@ -32,5 +33,6 @@ export interface ArticlePayload {
         mainImage: string;
         images: string[];
         engine?: string;
+        version?: bigint;
     };
 }

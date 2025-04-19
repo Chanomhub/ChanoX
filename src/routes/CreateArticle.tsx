@@ -1,13 +1,13 @@
-import React, {useState} from 'react';
-import {invoke} from '@tauri-apps/api/core';
-import {open} from '@tauri-apps/plugin-dialog';
+import React, { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import ArticleForm from './components/articles/ArticleForm';
 import DownloadForm from './components/articles/DownloadForm';
 import SummaryStep from './components/articles/SummaryStep';
 import StepIndicator from './components/articles/StepIndicator';
 import ErrorAlert from './components/articles/ErrorAlert';
 import LoadingIndicator from './components/articles/LoadingIndicator';
-import {ArticleFormData, ArticlePayload, DownloadData} from './components/articles/types';
+import { ArticleFormData, ArticlePayload, DownloadData } from './components/articles/types';
 
 const CreateArticle: React.FC = () => {
     const [step, setStep] = useState<number>(1);
@@ -23,6 +23,7 @@ const CreateArticle: React.FC = () => {
         mainImage: '',
         images: '',
         additionalImageFiles: [],
+        version: '',
     });
     const [downloadData, setDownloadData] = useState<DownloadData>({
         downloadName: '',
@@ -190,6 +191,7 @@ const CreateArticle: React.FC = () => {
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
+                    version: formData.version || '',
                 },
             };
 
@@ -291,6 +293,7 @@ const CreateArticle: React.FC = () => {
             mainImage: '',
             images: '',
             additionalImageFiles: [],
+            version: '',
         });
         setDownloadData({
             downloadName: '',

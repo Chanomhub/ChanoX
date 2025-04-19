@@ -73,6 +73,21 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 required
                             />
                         </div>
+
+                        <div className="flex flex-col">
+                            <label htmlFor="version" className="mb-2 font-semibold">
+                                เวอร์ชัน (ถ้าต้องการ)
+                            </label>
+                            <input
+                                type="text"
+                                id="version"
+                                name="version"
+                                value={formData.version}
+                                onChange={handleChange}
+                                placeholder="ตัวอย่าง: 1.0.0"
+                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
                     </div>
 
                     {/* Additional Info */}
