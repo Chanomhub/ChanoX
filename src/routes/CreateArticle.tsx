@@ -191,7 +191,7 @@ const CreateArticle: React.FC = () => {
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
-                    version: formData.version || '',
+                    version: formData.version ? BigInt(formData.version) : BigInt(0),
                 },
             };
 
