@@ -52,7 +52,7 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
                 </div>
                 <div className="form-control mb-4">
                     <label className="cursor-pointer label">
-                        <span className="label-text">แอคทีฟ</span>
+                        <span className="label-text">Active</span>
                         <input
                             type="checkbox"
                             name="isActive"

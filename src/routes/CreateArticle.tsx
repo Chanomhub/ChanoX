@@ -170,6 +170,12 @@ const CreateArticle: React.FC = () => {
                 imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
+            // Validate version to ensure it's a valid integer
+            const versionNumber = formData.version ? parseInt(formData.version, 10) : 0;
+            if (isNaN(versionNumber)) {
+                throw new Error('Version must be a valid number');
+            }
+
             const articlePayload: ArticlePayload = {
                 article: {
                     title: formData.title,
@@ -191,7 +197,7 @@ const CreateArticle: React.FC = () => {
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
-                    version: formData.version ? BigInt(formData.version) : BigInt(0),
+                    version: versionNumber, // Send as number
                 },
             };
 

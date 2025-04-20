@@ -13,7 +13,7 @@ const DownloadLinksList: React.FC<DownloadLinksListProps> = ({ links }) => {
                 {links.map((link, index) => (
                     <li key={index}>
                         {link.name}: <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{link.url}</a>{' '}
-                        {link.isActive ? '(แอคทีฟ)' : '(ไม่แอคทีฟ)'}
+                        {link.isActive ? '(Active)' : '(Inactive)'}
                     </li>
                 ))}
             </ul>

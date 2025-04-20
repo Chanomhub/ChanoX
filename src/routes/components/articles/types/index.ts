@@ -33,6 +33,6 @@ export interface ArticlePayload {
         mainImage: string;
         images: string[];
         engine?: string;
-        version?: bigint;
+        version?: number;
     };
 }
