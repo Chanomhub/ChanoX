@@ -47,3 +47,4 @@ sevenz-rust = "0.6.1"
 unrar = "0.5.8"
 tauri-plugin-opener = "2.2.6"
 image = { version = "0.25.6", features = ["webp", "gif"] }
+tauri-utils = "2.4.0"

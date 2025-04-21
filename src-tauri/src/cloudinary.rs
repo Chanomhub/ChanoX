@@ -10,6 +10,7 @@ use image::ImageFormat;
 use std::io::Cursor;
 
 
+
 #[derive(Serialize, Deserialize, Debug)]
 struct CloudinaryResponse {
     secure_url: String,

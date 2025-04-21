@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect } from "react";
-import { FiPlay } from 'react-icons/fi'; // Added FiPlay
+
 
 interface DownloadItem {
     id: string;
@@ -14,93 +14,85 @@ interface DownloadItem {
     provider?: string;
 }
 
-interface PluginManifest {
-    id: string;
-    name: string;
-    supported_hosts: string[];
-    supported_actions: string[];
-}
-
 export default function DownloadManager() {
     const [downloads, setDownloads] = useState<DownloadItem[]>([]);
     const [downloadUrl, setDownloadUrl] = useState("");
     const [downloadDirectory, setDownloadDirectory] = useState("");
-    const [availablePlugins, setAvailablePlugins] = useState<PluginManifest[]>([]);
-    const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-    const [selectedAction, setSelectedAction] = useState<string>("download");
-    const [actionInput, setActionInput] = useState<string>("");
 
     useEffect(() => {
         loadDownloadDirectory();
-        loadAvailablePlugins();
-        const setupListeners = async () => {
-            const unlistenProgress = await listen("download-progress", (event) => {
-                const { id, progress } = event.payload as { id: string; progress: number };
-                setDownloads((currentDownloads) =>
-                    currentDownloads.map((download) =>
-                        download.id === id
-                            ? { ...download, progress, status: "downloading" }
-                            : download
-                    )
-                );
-            });
+        setupListeners();
+        loadActiveDownloads();
 
-            const unlistenComplete = await listen("download-complete", (event) => {
-                const { id, path, filename } = event.payload as {
-                    id: string;
-                    path: string;
-                    filename: string;
-                };
-                setDownloads((currentDownloads) =>
-                    currentDownloads.map((download) =>
-                        download.id === id
-                            ? { ...download, status: "completed", progress: 100, path, filename }
-                            : download
-                    )
-                );
-            });
-
-            const unlistenError = await listen("download-error", (event) => {
-                const { id, error } = event.payload as {
-                    id: string;
-                    error: string;
-                };
-                setDownloads((currentDownloads) =>
-                    currentDownloads.map((download) =>
-                        download.id === id
-                            ? { ...download, status: "failed", error }
-                            : download
-                    )
-                );
-            });
-
-            const unlistenCancel = await listen("cancel-download", (event) => {
-                const { download_id } = event.payload as { download_id: string };
-                setDownloads((currentDownloads) =>
-                    currentDownloads.map((download) =>
-                        download.id === download_id
-                            ? {
-                                ...download,
-                                status: "cancelled",
-                                error: "Download cancelled by user",
-                                progress: 0,
-                            }
-                            : download
-                    )
-                );
-            });
-
-            loadActiveDownloads();
-            return [unlistenProgress, unlistenComplete, unlistenError, unlistenCancel];
-        };
-
-        const unlisten = setupListeners();
         return () => {
-            unlisten.then((unlistenFns) => {
-                unlistenFns.forEach((fn) => fn());
-            });
+            // Cleanup listeners (handled in setupListeners)
         };
     }, []);
+
+    const setupListeners = async () => {
+        const unlistenProgress = await listen("download-progress", (event) => {
+            const { id, progress } = event.payload as { id: string; progress: number };
+            setDownloads((currentDownloads) =>
+                currentDownloads.map((download) =>
+                    download.id === id
+                        ? { ...download, progress, status: "downloading" }
+                        : download
+                )
+            );
+        });
+
+        const unlistenComplete = await listen("download-complete", (event) => {
+            const { id, path, filename } = event.payload as {
+                id: string;
+                path: string;
+                filename: string;
+            };
+            setDownloads((currentDownloads) =>
+                currentDownloads.map((download) =>
+                    download.id === id
+                        ? { ...download, status: "completed", progress: 100, path, filename }
+                        : download
+                )
+            );
+        });
+
+        const unlistenError = await listen("download-error", (event) => {
+            const { id, error } = event.payload as {
+                id: string;
+                error: string;
+            };
+            setDownloads((currentDownloads) =>
+                currentDownloads.map((download) =>
+                    download.id === id
+                        ? { ...download, status: "failed", error }
+                        : download
+                )
+            );
+        });
+
+        const unlistenCancel = await listen("cancel-download", (event) => {
+            const { download_id } = event.payload as { download_id: string };
+            setDownloads((currentDownloads) =>
+                currentDownloads.map((download) =>
+                    download.id === download_id
+                        ? {
+                            ...download,
+                            status: "cancelled",
+                            error: "Download cancelled by user",
+                            progress: 0,
+                        }
+                        : download
+                )
+            );
+        });
+
+        return () => {
+            unlistenProgress();
+            unlistenComplete();
+            unlistenError();
+            unlistenCancel();
+        };
+    };
 
     const loadDownloadDirectory = async () => {
         try {
@@ -110,21 +102,6 @@ export default function DownloadManager() {
             console.error("Failed to load download directory:", err);
             setDownloadDirectory("Not set");
             alert("Download directory not set. Please configure it in settings.");
-        }
-    };
-
-    const loadAvailablePlugins = async () => {
-        try {
-            const detailsMap: Record<string, PluginManifest> = await invoke("get_all_plugins");
-            const plugins = Object.values(detailsMap).map(plugin => ({
-                id: plugin.id,
-                name: plugin.name,
-                supported_hosts: plugin.supported_hosts,
-                supported_actions: plugin.supported_actions,
-            }));
-            setAvailablePlugins(plugins);
-        } catch (err) {
-            console.error("Failed to load available plugins:", err);
         }
     };
 
@@ -147,24 +124,8 @@ export default function DownloadManager() {
 
         const downloadId = `dl_${Date.now()}`;
         const url = new URL(downloadUrl);
-        const pathSegments = url.pathname.split("/").filter((segment) => segment && segment !== "file");
+        const pathSegments = url.pathname.split("/").filter((segment) => segment);
         let filename = pathSegments[pathSegments.length - 1] || "download.bin";
-
-        if (url.hostname.includes("mediafire.com") && filename === "file") {
-            filename = pathSegments[pathSegments.length - 2] || "download.bin";
-        }
-
-        const host = url.hostname;
-        const provider = availablePlugins.find((plugin) =>
-            plugin.supported_hosts.some((h) =>
-                h.startsWith('*.') ? host.endsWith(h.slice(2)) : h === host
-            )
-        );
-
-        if (!provider) {
-            alert("No plugin supports this host");
-            return;
-        }
 
         const newDownload: DownloadItem = {
             id: downloadId,
@@ -172,14 +133,15 @@ export default function DownloadManager() {
             url: downloadUrl,
             progress: 0,
             status: "pending",
-            provider: provider.id,
+            provider: "webview2",
         };
 
         setDownloads((prev) => [...prev, newDownload]);
 
         try {
-            await invoke("download_from_url", {
+            await invoke("start_webview2_download", {
                 url: downloadUrl,
+                filename,
                 downloadId,
             });
         } catch (err) {
@@ -194,33 +156,6 @@ export default function DownloadManager() {
         }
 
         setDownloadUrl("");
-    };
-
-    const executePluginAction = async () => {
-        if (!selectedPlugin || !selectedAction) {
-            alert("Please select a plugin and action");
-            return;
-        }
-
-        let parsedInput: any;
-        try {
-            parsedInput = actionInput ? JSON.parse(actionInput) : {};
-        } catch (e) {
-            alert("Invalid JSON input");
-            return;
-        }
-
-        try {
-            const result = await invoke("execute_plugin_action", {
-                pluginId: selectedPlugin,
-                action: selectedAction,
-                input: parsedInput,
-            });
-            alert(`Action result: ${JSON.stringify(result, null, 2)}`);
-        } catch (err) {
-            console.error("Failed to execute action:", err);
-            alert(`Failed to execute action: ${err}`);
-        }
     };
 
     const cancelDownload = async (downloadId: string) => {
@@ -281,62 +216,6 @@ export default function DownloadManager() {
                     <button className="btn btn-primary" onClick={startDownload}>
                         Download
                     </button>
-                </div>
-
-                <div className="flex flex-col space-y-2">
-                    <div className="flex items-center">
-                        <label className="block text-sm font-medium mr-2">Plugin Action:</label>
-                        <select
-                            value={selectedPlugin}
-                            onChange={(e) => {
-                                setSelectedPlugin(e.target.value);
-                                setSelectedAction("");
-                            }}
-                            className="select select-bordered mr-2"
-                        >
-                            <option value="">Select Plugin</option>
-                            {availablePlugins.map((plugin) => (
-                                <option key={plugin.id} value={plugin.id}>
-                                    {plugin.name}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedAction}
-                            onChange={(e) => setSelectedAction(e.target.value)}
-                            className="select select-bordered mr-2"
-                            disabled={!selectedPlugin}
-                        >
-                            <option value="">Select Action</option>
-                            {selectedPlugin &&
-                                availablePlugins
-                                    .find((p) => p.id === selectedPlugin)
-                                    ?.supported_actions.map((action) => (
-                                    <option key={action} value={action}>
-                                        {action}
-                                    </option>
-                                ))}
-                        </select>
-                        <input
-                            type="text"
-                            value={actionInput}
-                            onChange={(e) => setActionInput(e.target.value)}
-                            className="input input-bordered flex-1 mr-2"
-                            placeholder='{"key": "value"}'
-                        />
-                        <button
-                            className="btn btn-primary"
-                            onClick={executePluginAction}
-                            disabled={!selectedPlugin || !selectedAction}
-                        >
-                            <FiPlay className="mr-1" /> Execute
-                        </button>
-                    </div>
-                    {availablePlugins.length > 0 && (
-                        <div className="mt-2 text-xs text-gray-500">
-                            Supported providers: {availablePlugins.map(p => p.name).join(", ")}
-                        </div>
-                    )}
                 </div>
             </div>
 

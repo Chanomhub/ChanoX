@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Download } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { message } from '@tauri-apps/plugin-dialog';
 
 interface ArticleDownload {
     id: number;
@@ -13,193 +13,101 @@ interface ArticleDownload {
     updatedAt: string;
 }
 
-interface DownloadProgressState {
-    [key: string]: {
-        progress: number;
-        status: 'pending' | 'downloading' | 'complete' | 'error';
-        error?: string;
-    };
-}
-
 interface ArticleDownloadsProps {
     downloads: ArticleDownload[];
 }
 
 const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
-    const [downloadState, setDownloadState] = useState<DownloadProgressState>({});
-
-    const formatDate = (timestamp: number | string) => {
-        return new Date(timestamp).toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-    };
-
-    const formatTime = (timestamp: number | string) => {
-        return new Date(timestamp).toLocaleTimeString('th-TH', {
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
+    const [downloadStatus, setDownloadStatus] = useState<{ [key: string]: string }>({});
+    const [downloadProgress, setDownloadProgress] = useState<{ [key: string]: number }>({});
 
     useEffect(() => {
-        // Listen for download progress updates
-        const progressUnlisten = listen('download-progress', (event) => {
-            const { id, progress } = event.payload as { id: string; progress: number };
+        const setupListeners = async () => {
+            console.log('Setting up download listeners');
 
-            setDownloadState((prev) => ({
-                ...prev,
-                [id]: {
-                    ...prev[id],
-                    progress,
-                    status: progress >= 100 ? 'complete' : 'downloading',
-                },
-            }));
-        });
+            const unlistenProgress = await listen('download-progress', (event) => {
+                console.log('Received download-progress event:', event.payload);
+                const { id, progress } = event.payload as { id: string; progress: number };
+                setDownloadProgress((prev) => ({ ...prev, [id]: progress }));
+                setDownloadStatus((prev) => ({ ...prev, [id]: `Downloading (${progress.toFixed(2)}%)` }));
+            });
 
-        // Listen for download completion
-        const completeUnlisten = listen('download-complete', (event) => {
-            const { id } = event.payload as { id: string; filename: string; path: string };
+            const unlistenComplete = await listen('download-complete', (event) => {
+                console.log('Received download-complete event:', event.payload);
+                const { id, filename } = event.payload as { id: string; filename: string };
+                setDownloadStatus((prev) => ({ ...prev, [id]: `Download completed: ${filename}` }));
+                setDownloadProgress((prev) => ({ ...prev, [id]: 100 }));
+            });
 
-            setDownloadState((prev) => ({
-                ...prev,
-                [id]: {
-                    ...prev[id],
-                    progress: 100,
-                    status: 'complete',
-                },
-            }));
-        });
+            const unlistenError = await listen('download-error', (event) => {
+                console.log('Received download-error event:', event.payload);
+                const { id, error } = event.payload as { id: string; error: string };
+                setDownloadStatus((prev) => ({ ...prev, [id]: `Error: ${error}` }));
+            });
 
-        // Listen for download errors
-        const errorUnlisten = listen('download-error', (event) => {
-            const { id, error } = event.payload as { id: string; filename: string; error: string };
+            // Listener สำหรับ debug event การเริ่มดาวน์โหลด
+            const unlistenStart = await listen('start-webview2-download', (event) => {
+                console.log('Received start-webview2-download event:', event.payload);
+            });
 
-            setDownloadState((prev) => ({
-                ...prev,
-                [id]: {
-                    ...prev[id],
-                    status: 'error',
-                    error,
-                },
-            }));
-        });
+            return [unlistenProgress, unlistenComplete, unlistenError, unlistenStart];
+        };
 
+        const unlisten = setupListeners();
         return () => {
-            progressUnlisten.then(unlisten => unlisten());
-            completeUnlisten.then(unlisten => unlisten());
-            errorUnlisten.then(unlisten => unlisten());
+            unlisten.then((unlistenFns) => unlistenFns.forEach((fn) => fn()));
         };
     }, []);
 
-    const isSupportedProvider = (url: string): boolean => {
-        return url.includes('mediafire.com') || url.includes('mega.nz') || url.includes('mega.io');
-    };
-
     const handleDownload = async (download: ArticleDownload) => {
-        if (!isSupportedProvider(download.url)) {
-            // Copy URL to clipboard
-            await navigator.clipboard.writeText(download.url);
-            // Show alert
-            alert('ลิงก์นี้ไม่รองรับปลั๊กอินดาวน์โหลด ลิงก์ถูกคัดลอกเรียบร้อยแล้ว คุณสามารถเปิดในเว็บได้');
-            return;
-        }
-
         try {
-            // Generate a unique download ID
-            const downloadId = `download_${download.id}_${Date.now()}`;
+            const downloadId = `article_download_${download.id}`;
+            console.log(`Starting download: id=${downloadId}, url=${download.url}, filename=${download.name}`);
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'Starting download...' }));
+            setDownloadProgress((prev) => ({ ...prev, [downloadId]: 0 }));
 
-            // Set initial state
-            setDownloadState((prev) => ({
-                ...prev,
-                [downloadId]: {
-                    progress: 0,
-                    status: 'pending',
-                },
-            }));
-
-            // Start the download
-            await invoke('download_from_url', {
+            await invoke('start_webview2_download', {
                 url: download.url,
+                filename: download.name,
+                downloadId,
             });
-
+            console.log(`Invoked start_webview2_download for id=${downloadId}`);
         } catch (error) {
-            console.error('Failed to start download:', error);
+            const downloadId = `article_download_${download.id}`;
+            console.error(`Failed to start download for id=${downloadId}:`, error);
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `Error: ${error}` }));
+            await message(`Failed to start download: ${error}`, { title: 'Error', kind: 'error' });
         }
-    };
-
-    // Get provider name from URL
-    const getProviderName = (url: string): string => {
-        if (url.includes('mediafire.com')) {
-            return 'MediaFire';
-        } else if (url.includes('mega.nz') || url.includes('mega.io')) {
-            return 'Mega';
-        }
-        return 'ไม่รองรับ';
     };
 
     return (
         <div className="p-6">
-            <h3 className="text-xl font-semibold mb-4">รายการดาวน์โหลดเอกสาร</h3>
+            <h3 className="text-xl font-semibold mb-4">Download Files</h3>
             <div className="space-y-4">
-                {downloads.map((download) => {
-                    const provider = getProviderName(download.url);
-                    const downloadInfo = downloadState[`download_${download.id}_${Date.now()}`] ||
-                        Object.values(downloadState).find(state =>
-                            state.status === 'downloading' || state.status === 'pending');
-
-                    return (
-                        <div
-                            key={download.id}
-                            className="flex items-center justify-between p-4 bg-base-200 rounded-lg border border-base-300 hover:border-primary transition-colors"
-                        >
-                            <div>
-                                <h4 className="font-medium">{download.name}</h4>
-                                <p className="text-sm text-base-content/70 mt-1">
-                                    อัปเดตเมื่อ: {formatDate(download.updatedAt)} เวลา{' '}
-                                    {formatTime(download.updatedAt)}
-                                </p>
-                                <p className="text-sm text-base-content/70">ผู้ให้บริการ: {provider}</p>
-                                {!download.isActive && (
-                                    <div className="badge badge-error badge-sm mt-2">ไม่พร้อมใช้งาน</div>
-                                )}
-
-                                {downloadInfo && downloadInfo.status === 'downloading' && (
-                                    <div className="mt-2">
-                                        <progress
-                                            className="progress progress-primary w-56"
-                                            value={downloadInfo.progress}
-                                            max="100"
-                                        ></progress>
-                                        <span className="text-xs ml-2">{downloadInfo.progress}%</span>
-                                    </div>
-                                )}
-
-                                {downloadInfo && downloadInfo.status === 'error' && (
-                                    <div className="badge badge-error mt-2">
-                                        ดาวน์โหลดล้มเหลว
-                                    </div>
-                                )}
-                            </div>
-
-                            <button
-                                className={`btn btn-primary gap-2 ${!download.isActive && 'btn-disabled'} ${
-                                    downloadInfo && downloadInfo.status === 'downloading' ? 'btn-disabled' : ''
-                                }`}
-                                onClick={() => handleDownload(download)}
-                                disabled={!download.isActive || (downloadInfo && downloadInfo.status === 'downloading')}
-                            >
-                                <Download size={16} />
-                                {downloadInfo && downloadInfo.status === 'downloading'
-                                    ? 'กำลังดาวน์โหลด...'
-                                    : downloadInfo && downloadInfo.status === 'complete'
-                                        ? 'ดาวน์โหลดสำเร็จ'
-                                        : 'ดาวน์โหลด'}
-                            </button>
+                {downloads.map((download) => (
+                    <div key={download.id} className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+                        <div>
+                            <p className="font-medium">{download.name}</p>
+                            <p className="text-sm text-base-content/70">
+                                {downloadStatus[`article_download_${download.id}`] || 'Ready to download'}
+                            </p>
+                            {downloadProgress[`article_download_${download.id}`] > 0 && (
+                                <progress
+                                    className="progress progress-primary w-full"
+                                    value={downloadProgress[`article_download_${download.id}`]}
+                                    max="100"
+                                />
+                            )}
                         </div>
-                    );
-                })}
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleDownload(download)}
+                            disabled={downloadStatus[`article_download_${download.id}`]?.includes('Downloading')}
+                        >
+                            Download
+                        </button>
+                    </div>
+                ))}
             </div>
         </div>
     );
