@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+
+# WebView 2
+WebView 2/ConsoleApp2/bin/*
