@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { DownloadData } from './types';
 import DownloadLinksList from './DownloadLinksList';
@@ -76,7 +75,11 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
                     </button>
                 </div>
             </div>
-            {downloadLinks.length > 0 && <DownloadLinksList links={downloadLinks} />}
+            {downloadLinks.length > 0 && (
+                <DownloadLinksList
+                    links={downloadLinks.filter(link => link.isActive)}
+                />
+            )}
             <div className="flex justify-start mt-4">
                 <button type="button" onClick={onPrevious} className="btn btn-outline">
                     กลับแก้ไขบทความ

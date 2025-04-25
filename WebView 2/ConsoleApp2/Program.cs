@@ -2,149 +2,122 @@
 using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.IO;
+using System.IO.Pipes;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
-using System.Collections.Generic;
+using System.Drawing; // Added for Size
 
 namespace TauriWebView2Download
 {
     public class MainForm : Form
     {
-        private WebView2 webView;
+        private TabControl tabControl;
         private string customUserDataFolder;
-        private string downloadUrl;
-        private string saveFolder;
-        private string downloadId;
-        private string filename;
-        private string initialMessage;
+        private static readonly string PipeName = "TauriWebView2DownloadPipe";
+        private NamedPipeServerStream pipeServer;
+        private bool isClosing;
 
         public MainForm(string initialMessage)
         {
-            this.initialMessage = initialMessage;
-            this.Load += MainForm_Load; // Subscribe to Load event
-        }
-
-        private async void MainForm_Load(object sender, EventArgs e)
-        {
-            await InitializeWebViewAsync();
+            InitializeForm();
+            StartPipeServer();
             if (!string.IsNullOrEmpty(initialMessage))
             {
-                try
-                {
-                    dynamic data = JsonConvert.DeserializeObject(initialMessage);
-                    HandleInitialMessage(data);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to parse initial message: {ex.Message}");
-                    PostMessage(new { status = "error", message = $"Failed to parse initial message: {ex.Message}" });
-                }
+                _ = ProcessInitialMessage(initialMessage); // Fire-and-forget async call
             }
-
-        }
-        private async Task InitializeWebViewAsync()
-        {
-            customUserDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TauriWebView2Download");
-            Console.WriteLine($"Creating WebView2 user data folder: {customUserDataFolder}");
-            Directory.CreateDirectory(customUserDataFolder);
-
-            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: customUserDataFolder);
-            Console.WriteLine("WebView2 environment created successfully");
-
-            webView = new WebView2 { Dock = DockStyle.Fill };
-            this.Controls.Add(webView);
-
-            await webView.EnsureCoreWebView2Async(environment);
-            Console.WriteLine("WebView2 initialized");
-
-            webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
-            webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-            webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-
-            webView.CoreWebView2.DownloadStarting += CoreWebView2_DownloadStarting;
-
-            webView.CoreWebView2.NavigateToString("<html><body><h1>WebView2 Download</h1></body></html>");
         }
 
-        private async void InitializeWebView()
+        private void InitializeForm()
         {
-            customUserDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TauriWebView2Download");
-            Console.WriteLine($"Creating WebView2 user data folder: {customUserDataFolder}");
-            Directory.CreateDirectory(customUserDataFolder);
+            // Set form properties
+            this.Text = "WebView2 Download Manager";
+            this.Size = new Size(800, 600); // Fixed: Using System.Drawing.Size
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormClosing += MainForm_FormClosing;
 
-            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: customUserDataFolder);
-            Console.WriteLine("WebView2 environment created successfully");
-
-            webView = new WebView2
+            // Initialize TabControl
+            tabControl = new TabControl
             {
                 Dock = DockStyle.Fill
             };
-            this.Controls.Add(webView);
+            this.Controls.Add(tabControl);
+        }
 
+        private async Task ProcessInitialMessage(string message)
+        {
+            try
+            {
+                dynamic data = JsonConvert.DeserializeObject(message);
+                await AddNewDownloadTab(data);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse initial message: {ex.Message}");
+                PostMessage(new { status = "error", message = $"Failed to parse initial message: {ex.Message}" });
+            }
+        }
+
+        private async Task AddNewDownloadTab(dynamic data)
+        {
+            string downloadUrl = data.url?.ToString();
+            string saveFolder = data.saveFolder?.ToString();
+            string downloadId = data.downloadId?.ToString();
+            string filename = data.filename?.ToString();
+
+            if (string.IsNullOrEmpty(downloadUrl) || !Uri.IsWellFormedUriString(downloadUrl, UriKind.Absolute))
+            {
+                PostMessage(new { status = "error", message = "Invalid or missing URL", downloadId });
+                return;
+            }
+
+            if (string.IsNullOrEmpty(saveFolder) || !IsValidPath(saveFolder))
+            {
+                PostMessage(new { status = "error", message = "Invalid or missing save folder path", downloadId });
+                return;
+            }
+
+            if (string.IsNullOrEmpty(downloadId))
+            {
+                PostMessage(new { status = "error", message = "Missing download ID" });
+                return;
+            }
+
+            // Create a new tab
+            TabPage tabPage = new TabPage($"Download {tabControl.TabPages.Count + 1}");
+            WebView2 webView = new WebView2 { Dock = DockStyle.Fill };
+            tabPage.Controls.Add(webView);
+            tabControl.TabPages.Add(tabPage);
+            tabControl.SelectedTab = tabPage;
+
+            // Initialize WebView2
+            string userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                $"TauriWebView2Download_{Guid.NewGuid()}" // Unique folder per tab
+            );
+            Console.WriteLine($"Creating WebView2 user data folder: {userDataFolder}");
+            Directory.CreateDirectory(userDataFolder);
+
+            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
             await webView.EnsureCoreWebView2Async(environment);
-            Console.WriteLine("WebView2 initialized");
+            Console.WriteLine($"WebView2 initialized for downloadId: {downloadId}");
 
             webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
             webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
-            webView.CoreWebView2.DownloadStarting += CoreWebView2_DownloadStarting;
+            // Attach download event
+            webView.CoreWebView2.DownloadStarting += (sender, e) =>
+                CoreWebView2_DownloadStarting(sender, e, saveFolder, downloadId, filename, webView, tabPage);
 
-            webView.CoreWebView2.NavigateToString("<html><body><h1>WebView2 Download</h1></body></html>");
+            // Navigate to download URL
+            webView.CoreWebView2.Navigate(downloadUrl);
+            Console.WriteLine($"Navigating to: {downloadUrl}");
+            PostMessage(new { status = "success", message = $"Navigating to: {downloadUrl} with save folder: {saveFolder}", downloadId });
         }
 
-        public void HandleInitialMessage(dynamic data)
-        {
-            try
-            {
-                Console.WriteLine($"Received initial message: {JsonConvert.SerializeObject(data)}");
-                string action = data.action;
-                if (action == "setDownload")
-                {
-                    downloadUrl = data.url?.ToString();
-                    saveFolder = data.saveFolder?.ToString();
-                    downloadId = data.downloadId?.ToString();
-                    filename = data.filename?.ToString();
-
-                    Console.WriteLine($"Download details: URL={downloadUrl}, SaveFolder={saveFolder}, DownloadId={downloadId}, Filename={filename}");
-
-                    if (string.IsNullOrEmpty(downloadUrl) || !Uri.IsWellFormedUriString(downloadUrl, UriKind.Absolute))
-                    {
-                        PostMessage(new { status = "error", message = "Invalid or missing URL", downloadId });
-                        return;
-                    }
-
-                    if (string.IsNullOrEmpty(saveFolder) || !IsValidPath(saveFolder))
-                    {
-                        PostMessage(new { status = "error", message = "Invalid or missing save folder path", downloadId });
-                        return;
-                    }
-
-                    if (string.IsNullOrEmpty(downloadId))
-                    {
-                        PostMessage(new { status = "error", message = "Missing download ID" });
-                        return;
-                    }
-
-                    // At this point, WebView2 is guaranteed to be initialized
-                    webView.CoreWebView2.Navigate(downloadUrl);
-                    Console.WriteLine($"Navigating to: {downloadUrl}");
-                    PostMessage(new { status = "success", message = $"Navigating to: {downloadUrl} with save folder: {saveFolder}", downloadId });
-                }
-                else
-                {
-                    PostMessage(new { status = "error", message = "Unknown action", downloadId = data.downloadId?.ToString() });
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in HandleInitialMessage: {ex.Message}");
-                PostMessage(new { status = "error", message = $"Error in HandleInitialMessage: {ex.Message}", downloadId = data.downloadId?.ToString() });
-            }
-        }
-
-        private void CoreWebView2_DownloadStarting(object sender, CoreWebView2DownloadStartingEventArgs e)
+        private void CoreWebView2_DownloadStarting(object sender, CoreWebView2DownloadStartingEventArgs e,
+            string saveFolder, string downloadId, string filename, WebView2 webView, TabPage tabPage)
         {
             try
             {
@@ -155,7 +128,6 @@ namespace TauriWebView2Download
                     return;
                 }
 
-                // Fix path handling for UNC paths
                 string normalizedSaveFolder = saveFolder;
                 if (normalizedSaveFolder.StartsWith(@"\\?\"))
                 {
@@ -190,20 +162,20 @@ namespace TauriWebView2Download
                         {
                             Console.WriteLine($"Download completed: {fullPath}");
                             PostMessage(new { status = "success", message = $"Download completed: {fullPath}", downloadId, path = fullPath });
-                            this.Close();
+                            this.Invoke((Action)(() => RemoveTab(tabPage, webView)));
                         }
                         else if (e.DownloadOperation.State == CoreWebView2DownloadState.Interrupted)
                         {
                             Console.WriteLine($"Download interrupted: {e.DownloadOperation.InterruptReason}");
                             PostMessage(new { status = "error", message = $"Download interrupted: {e.DownloadOperation.InterruptReason}", downloadId });
-                            this.Close();
+                            this.Invoke((Action)(() => RemoveTab(tabPage, webView)));
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Download state error: {ex.Message}");
                         PostMessage(new { status = "error", message = $"Download state error: {ex.Message}", downloadId });
-                        this.Close();
+                        this.Invoke((Action)(() => RemoveTab(tabPage, webView)));
                     }
                 };
 
@@ -231,41 +203,35 @@ namespace TauriWebView2Download
             }
         }
 
+        private void RemoveTab(TabPage tabPage, WebView2 webView)
+        {
+            if (!isClosing)
+            {
+                tabControl.TabPages.Remove(tabPage);
+                webView.Dispose();
+                if (tabControl.TabPages.Count == 0)
+                {
+                    this.Close();
+                }
+            }
+        }
+
         private void PostMessage(object message)
         {
             try
             {
-                // Ensure downloadId is included in every message if available
-                if (message is Dictionary<string, object> dict)
-                {
-                    if (!dict.ContainsKey("downloadId") && !string.IsNullOrEmpty(downloadId))
-                    {
-                        dict["downloadId"] = downloadId;
-                    }
-                }
-
                 string json = JsonConvert.SerializeObject(message);
                 Console.WriteLine($"Sending to stdout: {json}");
-                // Send through stderr as well to ensure Tauri receives it
                 Console.Error.WriteLine(json);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error serializing message: {ex.Message}");
-                try
+                Console.Error.WriteLine(JsonConvert.SerializeObject(new
                 {
-                    Console.Error.WriteLine(JsonConvert.SerializeObject(new
-                    {
-                        status = "error",
-                        message = $"Error serializing message: {ex.Message}",
-                        downloadId = downloadId
-                    }));
-                }
-                catch
-                {
-                    // Last resort error reporting
-                    Console.Error.WriteLine($"{{\"status\":\"error\",\"message\":\"Critical error\",\"downloadId\":\"{downloadId}\"}}");
-                }
+                    status = "error",
+                    message = $"Error serializing message: {ex.Message}"
+                }));
             }
         }
 
@@ -273,14 +239,11 @@ namespace TauriWebView2Download
         {
             try
             {
-                // Handle UNC paths
                 string normalizedPath = path;
                 if (normalizedPath.StartsWith(@"\\?\"))
                 {
                     normalizedPath = normalizedPath.Substring(4);
                 }
-
-                // Just check if we can get a full path without exceptions
                 Path.GetFullPath(normalizedPath);
                 return true;
             }
@@ -288,6 +251,63 @@ namespace TauriWebView2Download
             {
                 return false;
             }
+        }
+
+        private void StartPipeServer()
+        {
+            Task.Run(async () =>
+            {
+                while (!isClosing)
+                {
+                    try
+                    {
+                        using (pipeServer = new NamedPipeServerStream(PipeName, PipeDirection.In))
+                        {
+                            await pipeServer.WaitForConnectionAsync();
+                            using (StreamReader reader = new StreamReader(pipeServer))
+                            {
+                                string message = await reader.ReadToEndAsync();
+                                if (!string.IsNullOrEmpty(message))
+                                {
+                                    this.Invoke((Action)(async () => await ProcessInitialMessage(message)));
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Pipe server error: {ex.Message}");
+                    }
+                }
+            });
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            isClosing = true;
+            if (pipeServer != null)
+            {
+                try
+                {
+                    pipeServer.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error disposing pipe server: {ex.Message}");
+                }
+            }
+
+            foreach (TabPage tab in tabControl.TabPages)
+            {
+                foreach (Control control in tab.Controls)
+                {
+                    if (control is WebView2 webpex)
+                    {
+                        webpex.Dispose(); // Fixed: Corrected variable name from webView to webpex
+                    }
+                }
+            }
+            tabControl.Dispose();
         }
 
         [STAThread]
@@ -298,8 +318,32 @@ namespace TauriWebView2Download
 
             Console.WriteLine($"Command-line args: {string.Join(", ", args)}");
             string messageJson = args.Length > 0 ? args[0] : null;
-            var mainForm = new MainForm(messageJson); // Pass message to constructor
 
+            // Try to connect to existing instance
+            try
+            {
+                using (var pipeClient = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
+                {
+                    pipeClient.Connect(1000); // Wait 1 second
+                    using (StreamWriter writer = new StreamWriter(pipeClient))
+                    {
+                        writer.Write(messageJson);
+                        writer.Flush();
+                    }
+                    return; // Exit, as message was sent to existing instance
+                }
+            }
+            catch (TimeoutException)
+            {
+                // No existing instance, proceed to start new instance
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to connect to pipe: {ex.Message}");
+            }
+
+            // Start new instance
+            var mainForm = new MainForm(messageJson);
             Application.Run(mainForm);
         }
     }

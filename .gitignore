@@ -27,3 +27,7 @@ dist-ssr
 
 # WebView 2
 WebView 2/ConsoleApp2/bin/*
+/WebView 2/.vs/
+/WebView 2/ConsoleApp2/.vs/
+/WebView 2/ConsoleApp2/bin/
+/WebView 2/ConsoleApp2/obj/

@@ -46,6 +46,10 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Drawing.Common, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Drawing.Common.9.0.4\lib\net462\System.Drawing.Common.dll</HintPath>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -64,6 +68,11 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Program.resx">
+      <DependentUpon>Program.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\Microsoft.Web.WebView2.1.0.3179.45\build\Microsoft.Web.WebView2.targets" Condition="Exists('..\packages\Microsoft.Web.WebView2.1.0.3179.45\build\Microsoft.Web.WebView2.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
@@ -74,16 +83,15 @@
   </Target>
   <!-- Add post-build step to copy and rename the executable to Tauri binaries -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-  <PropertyGroup>
-    <TauriRootDir>$(SolutionDir)..\chanomhub</TauriRootDir>
-    <TauriBinariesDir>$(TauriRootDir)\binaries\Release</TauriBinariesDir>
-  </PropertyGroup>
-  <MakeDir Directories="$(TauriBinariesDir)" Condition="!Exists('$(TauriBinariesDir)')" />
-  <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFolder="$(TauriBinariesDir)" />
-  <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe.config" DestinationFolder="$(TauriBinariesDir)" />
-  <Copy SourceFiles="$(OutputPath)Microsoft.Web.WebView2.Core.dll" DestinationFolder="$(TauriBinariesDir)" />
-  <Copy SourceFiles="$(OutputPath)Microsoft.Web.WebView2.WinForms.dll" DestinationFolder="$(TauriBinariesDir)" />
-  <Copy SourceFiles="$(OutputPath)Newtonsoft.Json.dll" DestinationFolder="$(TauriBinariesDir)" />
-</Target>
-
+    <PropertyGroup>
+      <TauriRootDir>$(SolutionDir)..\chanomhub</TauriRootDir>
+      <TauriBinariesDir>$(TauriRootDir)\binaries\Release</TauriBinariesDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(TauriBinariesDir)" Condition="!Exists('$(TauriBinariesDir)')" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFolder="$(TauriBinariesDir)" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe.config" DestinationFolder="$(TauriBinariesDir)" />
+    <Copy SourceFiles="$(OutputPath)Microsoft.Web.WebView2.Core.dll" DestinationFolder="$(TauriBinariesDir)" />
+    <Copy SourceFiles="$(OutputPath)Microsoft.Web.WebView2.WinForms.dll" DestinationFolder="$(TauriBinariesDir)" />
+    <Copy SourceFiles="$(OutputPath)Newtonsoft.Json.dll" DestinationFolder="$(TauriBinariesDir)" />
+  </Target>
 </Project>

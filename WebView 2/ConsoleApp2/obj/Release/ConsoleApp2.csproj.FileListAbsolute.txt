@@ -13,3 +13,23 @@ D:\Application\Chanomhub\ConsoleApp2\ConsoleApp2\obj\Release\ConsoleApp2.csproj.
 D:\Application\Chanomhub\ConsoleApp2\ConsoleApp2\obj\Release\ConsoleA.D5FB4C91.Up2Date
 D:\Application\Chanomhub\ConsoleApp2\ConsoleApp2\obj\Release\ConsoleApp2.exe
 D:\Application\Chanomhub\ConsoleApp2\ConsoleApp2\obj\Release\ConsoleApp2.pdb
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\runtimes\win-x64\native\WebView2Loader.dll
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\ConsoleApp2.exe.config
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\ConsoleApp2.exe
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\ConsoleApp2.pdb
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Microsoft.Web.WebView2.Core.dll
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Microsoft.Web.WebView2.WinForms.dll
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Newtonsoft.Json.dll
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\System.Drawing.Common.dll
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Microsoft.Web.WebView2.Core.xml
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Microsoft.Web.WebView2.WinForms.xml
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\Newtonsoft.Json.xml
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\System.Drawing.Common.pdb
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\bin\Release\System.Drawing.Common.xml
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.csproj.AssemblyReference.cache
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\TauriWebView2Download.MainForm.resources
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.csproj.GenerateResource.cache
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.csproj.CoreCompileInputs.cache
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleA.D5FB4C91.Up2Date
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.exe
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.pdb
