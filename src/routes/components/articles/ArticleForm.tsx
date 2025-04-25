@@ -165,6 +165,10 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 <option value="RPGM">RPG Maker</option>
                                 <option value="UNITY">Unity</option>
                                 <option value="UNREAL">Unreal Engine</option>
+                                <option value="TyranoBuilder">TyranoBuilder</option>
+                                <option value="WOLFRPG">Wolf RPG</option>
+                                <option value="KIRIKIRI">Kirikiri</option>
+
                             </select>
                         </div>
                         {formData.status === 'PUBLISHED' && (
