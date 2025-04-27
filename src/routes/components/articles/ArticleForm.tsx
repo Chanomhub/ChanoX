@@ -84,7 +84,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 name="version"
                                 value={formData.version}
                                 onChange={handleChange}
-                                placeholder="ตัวอย่าง: 1.0.0"
+                                placeholder="ตัวอย่าง: 132"
                                 className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
