@@ -17,6 +17,7 @@
     "tauri:build:all": "pnpm tauri:build:x64 && pnpm tauri:build:x32"
   },
   "dependencies": {
+    "@tabler/icons-react": "^3.31.0",
     "@tailwindcss/postcss": "^4.1.4",
     "@tailwindcss/vite": "^4.1.4",
     "@tauri-apps/api": "^2.5.0",
