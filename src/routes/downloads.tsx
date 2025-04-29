@@ -28,6 +28,36 @@ export default function DownloadManager() {
             // Cleanup listeners (handled in setupListeners)
         };
     }, []);
+    
+    // Add additional effect to update UI faster when cancellation is requested
+    useEffect(() => {
+        const handleCancelRequest = (downloadId: string) => {
+            setDownloads((currentDownloads) =>
+                currentDownloads.map((download) =>
+                    download.id === downloadId
+                        ? {
+                            ...download,
+                            status: "cancelled",
+                            error: "Cancellation requested...",
+                            progress: 0,
+                        }
+                        : download
+                )
+            );
+        };
+        
+        // Any time a cancel button is clicked, update the UI immediately
+        // while we wait for the backend cancellation to process
+        window.addEventListener("download-cancel-requested", (e: any) => {
+            if (e.detail && e.detail.downloadId) {
+                handleCancelRequest(e.detail.downloadId);
+            }
+        });
+        
+        return () => {
+            window.removeEventListener("download-cancel-requested", (e: any) => {});
+        };
+    }, []);
 
     const setupListeners = async () => {
         const unlistenProgress = await listen("download-progress", (event) => {
@@ -248,7 +278,13 @@ export default function DownloadManager() {
                                         <div className="flex justify-end mt-2">
                                             <button
                                                 className="btn btn-sm btn-error"
-                                                onClick={() => cancelDownload(download.id)}
+                                                onClick={() => {
+                                                    // Dispatch a custom event to update UI immediately
+                                                    window.dispatchEvent(new CustomEvent("download-cancel-requested", {
+                                                        detail: { downloadId: download.id }
+                                                    }));
+                                                    cancelDownload(download.id);
+                                                }}
                                             >
                                                 Cancel
                                             </button>
@@ -295,9 +331,9 @@ export default function DownloadManager() {
                                 )}
 
                                 {(download.status === "failed" || download.status === "cancelled") && (
-                                    <div className="text-error">
+                                    <div className={download.status === "failed" ? "text-error" : "text-warning"}>
                                         {download.status === "failed" ? "Download failed" : "Download cancelled"}:{" "}
-                                        {download.error?.replace("Download failed: ", "") || "Unknown error"}
+                                        {download.error?.replace("Download failed: ", "").replace("Download cancelled: ", "") || "Unknown error"}
                                     </div>
                                 )}
                             </div>

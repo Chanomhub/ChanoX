@@ -309,6 +309,46 @@ async fn webview2_response(
         .write()
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
 
+    // Check for downloadStarted flag for improved initial download detection
+    let download_started = response
+        .get("downloadStarted")
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false);
+
+    // If this is a download start notification and we don't have it registered yet
+    if download_started && !downloads.downloads.contains_key(download_id) {
+        let filename = response
+            .get("filename")
+            .and_then(|f| f.as_str())
+            .unwrap_or("Unknown file")
+            .to_string();
+
+        println!("Registering new download from start notification: id={}, filename={}", download_id, filename);
+        
+        let download_info = DownloadInfo {
+            id: download_id.to_string(),
+            filename: filename.clone(),
+            url: "".to_string(),
+            progress: 0.1,
+            status: "downloading".to_string(),
+            path: None,
+            error: None,
+            provider: Some("webview2".to_string()),
+        };
+
+        downloads.downloads.insert(download_id.to_string(), download_info);
+        
+        // Emit start event for this new download
+        let _ = app.emit(
+            "download-progress",
+            &serde_json::json!({
+                "id": download_id,
+                "progress": 0.1,
+                "filename": filename
+            }),
+        );
+    }
+
     if let Some(download) = downloads.downloads.get_mut(download_id) {
         match status {
             "success" => {
@@ -316,6 +356,12 @@ async fn webview2_response(
                     download.status = "completed".to_string();
                     download.progress = 100.0;
                     download.path = Some(path.to_string());
+                    
+                    // Update filename if provided
+                    if let Some(filename) = response.get("filename").and_then(|f| f.as_str()) {
+                        download.filename = filename.to_string();
+                    }
+                    
                     println!("Download completed: id={}, path={}", download_id, path);
                     let _ = app.emit(
                         "download-complete",
@@ -332,7 +378,12 @@ async fn webview2_response(
                     );
                 } else {
                     download.status = "downloading".to_string();
-                    download.progress = 10.0; // Initial progress
+                    
+                    // Don't reset progress if it's already higher
+                    if download.progress < 10.0 {
+                        download.progress = 10.0; // Initial progress
+                    }
+                    
                     println!("Download started: id={}", download_id);
                     let _ = app.emit(
                         "download-progress",
@@ -368,16 +419,19 @@ async fn webview2_response(
             }
             "progress" => {
                 if let Some(progress) = response.get("progress").and_then(|p| p.as_f64()) {
-                    download.progress = progress as f32;
-                    download.status = "downloading".to_string();
-                    println!("Download progress: id={}, progress={}", download_id, progress);
-                    let _ = app.emit(
-                        "download-progress",
-                        &serde_json::json!({
-                            "id": download_id,
-                            "progress": progress
-                        }),
-                    );
+                    // Only update progress if it's increasing
+                    if progress as f32 > download.progress || download_started {
+                        download.progress = progress as f32;
+                        download.status = "downloading".to_string();
+                        println!("Download progress: id={}, progress={}", download_id, progress);
+                        let _ = app.emit(
+                            "download-progress",
+                            &serde_json::json!({
+                                "id": download_id,
+                                "progress": progress
+                            }),
+                        );
+                    }
                 }
             }
             _ => {
@@ -397,22 +451,35 @@ async fn webview2_response(
     } else {
         println!("No download found for id: {}", download_id);
         // Register the download if it wasn't found but has a valid ID
-        if download_id.len() > 0 && (status == "success" || status == "error") {
+        if download_id.len() > 0 && (status == "success" || status == "error" || status == "progress") {
             let filename = response.get("filename")
                 .and_then(|f| f.as_str())
                 .unwrap_or("Unknown file");
+
+            let progress = if status == "progress" {
+                response.get("progress").and_then(|p| p.as_f64()).unwrap_or(0.0) as f32
+            } else {
+                0.0
+            };
 
             let download_info = DownloadInfo {
                 id: download_id.to_string(),
                 filename: filename.to_string(),
                 url: "".to_string(),
-                progress: 0.0,
+                progress,
                 status: match status {
-                    "success" => "downloading".to_string(),
+                    "success" => {
+                        if response.get("path").is_some() {
+                            "completed".to_string()
+                        } else {
+                            "downloading".to_string()
+                        }
+                    },
+                    "progress" => "downloading".to_string(),
                     "error" => "failed".to_string(),
                     _ => "unknown".to_string(),
                 },
-                path: None,
+                path: response.get("path").and_then(|p| p.as_str()).map(|s| s.to_string()),
                 error: if status == "error" {
                     response.get("message").and_then(|m| m.as_str()).map(|s| s.to_string())
                 } else {
@@ -423,6 +490,32 @@ async fn webview2_response(
 
             downloads.downloads.insert(download_id.to_string(), download_info);
             println!("Registered new download with id: {}", download_id);
+            
+            // Emit appropriate event based on status
+            match status {
+                "progress" => {
+                    let _ = app.emit(
+                        "download-progress",
+                        &serde_json::json!({
+                            "id": download_id,
+                            "progress": progress
+                        }),
+                    );
+                },
+                "success" => {
+                    if let Some(path) = response.get("path").and_then(|p| p.as_str()) {
+                        let _ = app.emit(
+                            "download-complete",
+                            &serde_json::json!({
+                                "id": download_id,
+                                "filename": filename,
+                                "path": path
+                            }),
+                        );
+                    }
+                },
+                _ => {}
+            }
         }
     }
 

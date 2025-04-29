@@ -20,6 +20,7 @@ interface ArticleDownloadsProps {
 const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
     const [downloadStatus, setDownloadStatus] = useState<{ [key: string]: string }>({});
     const [downloadProgress, setDownloadProgress] = useState<{ [key: string]: number }>({});
+    const [cancellingDownloads, setCancellingDownloads] = useState<{ [key: string]: boolean }>({});
 
     useEffect(() => {
         const setupListeners = async () => {
@@ -37,12 +38,14 @@ const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
                 const { id, filename } = event.payload as { id: string; filename: string };
                 setDownloadStatus((prev) => ({ ...prev, [id]: `Download completed: ${filename}` }));
                 setDownloadProgress((prev) => ({ ...prev, [id]: 100 }));
+                setCancellingDownloads((prev) => ({ ...prev, [id]: false }));
             });
 
             const unlistenError = await listen('download-error', (event) => {
                 console.log('Received download-error event:', event.payload);
                 const { id, error } = event.payload as { id: string; error: string };
                 setDownloadStatus((prev) => ({ ...prev, [id]: `Error: ${error}` }));
+                setCancellingDownloads((prev) => ({ ...prev, [id]: false }));
             });
 
             // Listener สำหรับ debug event การเริ่มดาวน์โหลด
@@ -50,7 +53,16 @@ const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
                 console.log('Received start-webview2-download event:', event.payload);
             });
 
-            return [unlistenProgress, unlistenComplete, unlistenError, unlistenStart];
+            // Listener for cancel-download events
+            const unlistenCancel = await listen('cancel-download', (event) => {
+                console.log('Received cancel-download event:', event.payload);
+                const { download_id } = event.payload as { download_id: string };
+                setDownloadStatus((prev) => ({ ...prev, [download_id]: 'Download cancelled' }));
+                setDownloadProgress((prev) => ({ ...prev, [download_id]: 0 }));
+                setCancellingDownloads((prev) => ({ ...prev, [download_id]: false }));
+            });
+
+            return [unlistenProgress, unlistenComplete, unlistenError, unlistenStart, unlistenCancel];
         };
 
         const unlisten = setupListeners();
@@ -80,34 +92,74 @@ const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
         }
     };
 
+    const handleCancelDownload = async (download: ArticleDownload) => {
+        const downloadId = `article_download_${download.id}`;
+        console.log(`Cancelling download: id=${downloadId}`);
+        
+        try {
+            setCancellingDownloads((prev) => ({ ...prev, [downloadId]: true }));
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'Cancelling download...' }));
+            
+            await invoke('cancel_active_download', { download_id: downloadId });
+            console.log(`Invoked cancel_active_download for id=${downloadId}`);
+        } catch (error) {
+            console.error(`Failed to cancel download for id=${downloadId}:`, error);
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `Error cancelling: ${error}` }));
+            setCancellingDownloads((prev) => ({ ...prev, [downloadId]: false }));
+            await message(`Failed to cancel download: ${error}`, { title: 'Error', kind: 'error' });
+        }
+    };
+
+    const isDownloading = (downloadId: string) => {
+        const status = downloadStatus[downloadId];
+        return status?.includes('Downloading') || status === 'Starting download...';
+    };
+
     return (
         <div className="p-6">
             <h3 className="text-xl font-semibold mb-4">Download Files</h3>
             <div className="space-y-4">
-                {downloads.map((download) => (
-                    <div key={download.id} className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
-                        <div>
-                            <p className="font-medium">{download.name}</p>
-                            <p className="text-sm text-base-content/70">
-                                {downloadStatus[`article_download_${download.id}`] || 'Ready to download'}
-                            </p>
-                            {downloadProgress[`article_download_${download.id}`] > 0 && (
-                                <progress
-                                    className="progress progress-primary w-full"
-                                    value={downloadProgress[`article_download_${download.id}`]}
-                                    max="100"
-                                />
-                            )}
+                {downloads.map((download) => {
+                    const downloadId = `article_download_${download.id}`;
+                    const downloading = isDownloading(downloadId);
+                    const cancelling = cancellingDownloads[downloadId];
+                    
+                    return (
+                        <div key={download.id} className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+                            <div className="flex-grow mr-4">
+                                <p className="font-medium">{download.name}</p>
+                                <p className="text-sm text-base-content/70">
+                                    {downloadStatus[downloadId] || 'Ready to download'}
+                                </p>
+                                {downloadProgress[downloadId] > 0 && (
+                                    <progress
+                                        className="progress progress-primary w-full"
+                                        value={downloadProgress[downloadId]}
+                                        max="100"
+                                    />
+                                )}
+                            </div>
+                            <div className="flex space-x-2">
+                                {downloading && !cancelling && (
+                                    <button
+                                        className="btn btn-error btn-sm"
+                                        onClick={() => handleCancelDownload(download)}
+                                        disabled={cancelling}
+                                    >
+                                        {cancelling ? 'Cancelling...' : 'Cancel'}
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => handleDownload(download)}
+                                    disabled={downloading || cancelling}
+                                >
+                                    Download
+                                </button>
+                            </div>
                         </div>
-                        <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleDownload(download)}
-                            disabled={downloadStatus[`article_download_${download.id}`]?.includes('Downloading')}
-                        >
-                            Download
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

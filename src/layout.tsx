@@ -38,7 +38,7 @@ export default function Layout() {
                 </Link>
                 <div className="flex-grow" />
                 <Link className={pluginClass} to="/plugins">
-                    <IconPuzzle 
+                    <IconPuzzle
                         className={clsx(defaultClass, {
                             [selectedClass]: location.pathname === "/plugins",
                         })}
