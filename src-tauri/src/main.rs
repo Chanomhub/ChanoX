@@ -578,18 +578,33 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
         .write()
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
 
-    app.emit(
-        "cancel-download",
-        &serde_json::json!({ "download_id": download_id }),
-    ).map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
-
     if let Some(token) = downloads.tokens.remove(&download_id) {
-        token.cancel();
+        token.cancel(); // Cancel the token
         if let Some(download) = downloads.downloads.get_mut(&download_id) {
             download.status = "cancelled".to_string();
             download.progress = 0.0;
             download.error = Some("Download cancelled by user".to_string());
         }
+
+        // ส่งคำสั่งยกเลิกไปยัง WebView2 process
+        let message = serde_json::json!({
+            "action": "cancelDownload",
+            "downloadId": download_id
+        });
+        let message_str = message.to_string();
+
+        // ส่งผ่าน pipe หรือ stdout/stderr
+        let binary_path = /* หา path ของ WebView2 binary */;
+        app.shell()
+            .command(binary_path.to_str().ok_or("Invalid binary path")?)
+            .arg(&message_str)
+            .spawn()
+            .map_err(|e| format!("Failed to send cancel command: {}", e))?;
+
+        app.emit(
+            "cancel-download",
+            &serde_json::json!({ "download_id": download_id }),
+        ).map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
 
         show_download_notification(
             app.clone(),
