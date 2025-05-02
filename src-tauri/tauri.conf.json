@@ -39,11 +39,7 @@
     "resources": [
       "plugins/**/*",
       "downloads",
-      "binaries/**/*",
-      "binaries/Release/ConsoleApp2.exe.config",
-      "binaries/Release/Microsoft.Web.WebView2.Core.dll",
-      "binaries/Release/Microsoft.Web.WebView2.WinForms.dll",
-      "binaries/Release/Newtonsoft.Json.dll"
+      "binaries/**/*"
     ],
     "active": true,
     "targets": "all",

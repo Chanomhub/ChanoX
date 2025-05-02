@@ -783,10 +783,10 @@ async fn start_webview2_download(
 
         // Define multiple potential locations to check
         let paths_to_check = vec![
-            app.path().app_log_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-            app.path().app_data_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-            app.path().resource_dir().map(|p| p.join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-            std::path::PathBuf::from("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
+//             app.path().app_log_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
+//             app.path().app_data_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
+//             app.path().resource_dir().map(|p| p.join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
+//             std::path::PathBuf::from("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
             std::path::PathBuf::from("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
         ];
 
