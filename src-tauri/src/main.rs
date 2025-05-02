@@ -586,15 +586,30 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
             download.error = Some("Download cancelled by user".to_string());
         }
 
-        // ส่งคำสั่งยกเลิกไปยัง WebView2 process
+        // Get the WebView2 binary path
+        let app_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app dir: {}", e))?;
+        let binary_path = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("Failed to get resource dir: {}", e))?
+            .join("binaries")
+            .join("Release")
+            .join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe");
+
+        if !binary_path.exists() {
+            return Err("WebView2 binary not found".to_string());
+        }
+
+        // Send cancel command to WebView2 process
         let message = serde_json::json!({
             "action": "cancelDownload",
             "downloadId": download_id
         });
         let message_str = message.to_string();
 
-        // ส่งผ่าน pipe หรือ stdout/stderr
-        let binary_path = /* หา path ของ WebView2 binary */;
         app.shell()
             .command(binary_path.to_str().ok_or("Invalid binary path")?)
             .arg(&message_str)
