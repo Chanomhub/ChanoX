@@ -106,7 +106,6 @@ const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-black bg-opacity-70 flex flex-col items-center justify-start z-50 p-4 backdrop-blur-sm">
             <div className="bg-base-100 rounded-xl max-w-5xl w-full shadow-2xl flex flex-col">
                 {loadingDetail ? (
                     <div className="flex flex-col justify-center items-center h-64">
@@ -342,7 +341,7 @@ const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                             )}
 
                             {activeTab === 'downloads' && (
-                                <ArticleDownloads downloads={articleDownloads} />
+                                <ArticleDownloads downloads={articleDownloads as any} />
                             )}
                         </div>
 
@@ -379,7 +378,6 @@ const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                     </div>
                 )}
             </div>
-        </div>
     );
 };
 
@@ -402,7 +400,7 @@ const ArticlePage: React.FC = () => {
                 const article = await fetchArticleBySlug(slug);
                 setArticleDetail(article);
                 const downloads = await fetchArticleDownloads(article.id);
-                setArticleDownloads(downloads);
+                setArticleDownloads(downloads || []);
             } catch (err) {
                 console.error("Error fetching article details:", err);
                 setError("ไม่สามารถโหลดข้อมูลบทความได้");

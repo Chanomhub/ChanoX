@@ -56,7 +56,11 @@ export default function DownloadManager() {
         });
         
         return () => {
-            window.removeEventListener("download-cancel-requested", (e: any) => {});
+            window.removeEventListener("download-cancel-requested", (e: any) => {
+                if (e.detail && e.detail.downloadId) {
+                    handleCancelRequest(e.detail.downloadId);
+                }
+            });
         };
     }, []);
 

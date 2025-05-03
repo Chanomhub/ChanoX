@@ -10,6 +10,7 @@ interface ArticleDownload {
     name: string;
     url: string;
     isActive: boolean;
+    status: string; // Add this line
     createdAt: string;
     updatedAt: string;
 }
@@ -96,11 +97,11 @@ const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
     const handleCancelDownload = async (download: ArticleDownload) => {
         const downloadId = `article_download_${download.id}`;
         console.log(`Cancelling download: id=${downloadId}`);
-        
+
         try {
             setCancellingDownloads((prev) => ({ ...prev, [downloadId]: true }));
             setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'Cancelling download...' }));
-            
+
             await invoke('cancel_active_download', { download_id: downloadId });
             console.log(`Invoked cancel_active_download for id=${downloadId}`);
         } catch (error) {
@@ -124,7 +125,7 @@ const ArticleDownloads: React.FC<ArticleDownloadsProps> = ({ downloads }) => {
                     const downloadId = `article_download_${download.id}`;
                     const downloading = isDownloading(downloadId);
                     const cancelling = cancellingDownloads[downloadId];
-                    
+
                     return (
                         <div key={download.id} className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
                             <div className="flex-grow mr-4">

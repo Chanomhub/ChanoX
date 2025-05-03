@@ -7,7 +7,7 @@ mod cloudinary;
 mod state;
 mod archiver;
 
-use crate::state::{AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo};
+use crate::state::{AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo, save_active_downloads_to_file, load_active_downloads_from_file, cleanup_active_downloads};
 use tauri_plugin_shell::ShellExt;
 use tauri::{Manager, State, Emitter, AppHandle};
 use tauri_plugin_notification::NotificationExt;
@@ -21,10 +21,12 @@ use tokio_util::sync::CancellationToken;
 use tauri_plugin_shell::process::CommandEvent;
 use std::sync::Arc;
 
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {
-    downloads: HashMap<String, DownloadInfo>,
-    tokens: HashMap<String, CancellationToken>,
+    #[serde(default)]
+    pub downloads: HashMap<String, DownloadInfo>,
+    #[serde(skip)]
+    pub tokens: HashMap<String, CancellationToken>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -40,6 +42,15 @@ pub struct DownloadInfo {
 }
 
 #[tauri::command]
+fn is_directory(path: String) -> Result<bool, String> {
+    let path_obj = std::path::Path::new(&path);
+    if !path_obj.exists() {
+        return Err("Path does not exist".to_string());
+    }
+    Ok(path_obj.is_dir())
+}
+
+#[tauri::command]
 async fn unarchive_file(file_path: String, output_dir: String) -> Result<(), String> {
     archiver::unarchive_file(&file_path, &output_dir)
         .map_err(|e| match e {
@@ -48,6 +59,7 @@ async fn unarchive_file(file_path: String, output_dir: String) -> Result<(), Str
             archiver::ArchiveError::InvalidArchive(msg) => format!("Invalid archive: {}", msg),
         })
 }
+
 
 #[tauri::command]
 async fn check_path_exists(path: String) -> Result<bool, String> {
@@ -230,7 +242,6 @@ fn set_download_dir(
 fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        // Check if WebView2 runtime is installed
         let output = StdCommand::new("reg")
             .args(&["query", "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients"])
             .output()
@@ -241,12 +252,10 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        // Try to find the bootstrapper using a few different locations
         let app_dir = app.path()
             .app_data_dir()
             .map_err(|e| format!("Failed to get app directory: {}", e))?;
 
-        // Define potential paths to check
         let paths_to_check = vec![
             app_dir.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
             app_dir.join("binaries/Release/ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
@@ -254,7 +263,6 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             std::path::PathBuf::from("binaries/Release/ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
         ];
 
-        // Try each path
         for path in paths_to_check {
             println!("Checking bootstrapper at: {:?}", path);
             if path.exists() {
@@ -271,7 +279,6 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             }
         }
 
-        // No bootstrapper found
         return Err("WebView2 bootstrapper not found in any expected location".to_string());
     }
     Ok(())
@@ -285,12 +292,10 @@ async fn webview2_response(
 ) -> Result<(), String> {
     println!("Received WebView2 response: {:?}", response);
 
-    // Handle missing downloadId more gracefully
     let download_id = match response.get("downloadId").and_then(|id| id.as_str()) {
         Some(id) => id,
         None => {
             println!("Warning: Response missing downloadId: {:?}", response);
-            // Try to emit a generic error notification
             let _ = show_download_notification(
                 app.clone(),
                 "Download Error".to_string(),
@@ -309,13 +314,11 @@ async fn webview2_response(
         .write()
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
 
-    // Check for downloadStarted flag for improved initial download detection
     let download_started = response
         .get("downloadStarted")
         .and_then(|s| s.as_bool())
         .unwrap_or(false);
 
-    // If this is a download start notification and we don't have it registered yet
     if download_started && !downloads.downloads.contains_key(download_id) {
         let filename = response
             .get("filename")
@@ -324,7 +327,7 @@ async fn webview2_response(
             .to_string();
 
         println!("Registering new download from start notification: id={}, filename={}", download_id, filename);
-        
+
         let download_info = DownloadInfo {
             id: download_id.to_string(),
             filename: filename.clone(),
@@ -337,8 +340,7 @@ async fn webview2_response(
         };
 
         downloads.downloads.insert(download_id.to_string(), download_info);
-        
-        // Emit start event for this new download
+
         let _ = app.emit(
             "download-progress",
             &serde_json::json!({
@@ -356,12 +358,11 @@ async fn webview2_response(
                     download.status = "completed".to_string();
                     download.progress = 100.0;
                     download.path = Some(path.to_string());
-                    
-                    // Update filename if provided
+
                     if let Some(filename) = response.get("filename").and_then(|f| f.as_str()) {
                         download.filename = filename.to_string();
                     }
-                    
+
                     println!("Download completed: id={}, path={}", download_id, path);
                     let _ = app.emit(
                         "download-complete",
@@ -378,12 +379,11 @@ async fn webview2_response(
                     );
                 } else {
                     download.status = "downloading".to_string();
-                    
-                    // Don't reset progress if it's already higher
+
                     if download.progress < 10.0 {
-                        download.progress = 10.0; // Initial progress
+                        download.progress = 10.0;
                     }
-                    
+
                     println!("Download started: id={}", download_id);
                     let _ = app.emit(
                         "download-progress",
@@ -419,7 +419,6 @@ async fn webview2_response(
             }
             "progress" => {
                 if let Some(progress) = response.get("progress").and_then(|p| p.as_f64()) {
-                    // Only update progress if it's increasing
                     if progress as f32 > download.progress || download_started {
                         download.progress = progress as f32;
                         download.status = "downloading".to_string();
@@ -450,7 +449,6 @@ async fn webview2_response(
         }
     } else {
         println!("No download found for id: {}", download_id);
-        // Register the download if it wasn't found but has a valid ID
         if download_id.len() > 0 && (status == "success" || status == "error" || status == "progress") {
             let filename = response.get("filename")
                 .and_then(|f| f.as_str())
@@ -490,8 +488,7 @@ async fn webview2_response(
 
             downloads.downloads.insert(download_id.to_string(), download_info);
             println!("Registered new download with id: {}", download_id);
-            
-            // Emit appropriate event based on status
+
             match status {
                 "progress" => {
                     let _ = app.emit(
@@ -522,6 +519,9 @@ async fn webview2_response(
     if matches!(status, "success" | "error") {
         downloads.tokens.remove(download_id);
     }
+
+    // Save ActiveDownloads after modification
+    save_active_downloads_to_file(&app, &downloads)?;
 
     Ok(())
 }
@@ -579,14 +579,13 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
 
     if let Some(token) = downloads.tokens.remove(&download_id) {
-        token.cancel(); // Cancel the token
+        token.cancel();
         if let Some(download) = downloads.downloads.get_mut(&download_id) {
             download.status = "cancelled".to_string();
             download.progress = 0.0;
             download.error = Some("Download cancelled by user".to_string());
         }
 
-        // Get the WebView2 binary path
         let app_dir = app
             .path()
             .app_data_dir()
@@ -603,7 +602,6 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
             return Err("WebView2 binary not found".to_string());
         }
 
-        // Send cancel command to WebView2 process
         let message = serde_json::json!({
             "action": "cancelDownload",
             "downloadId": download_id
@@ -627,6 +625,9 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
             format!("Download {} was cancelled", download_id),
         )?;
 
+        // Save ActiveDownloads after modification
+        save_active_downloads_to_file(&app, &downloads)?;
+
         println!("Download {} cancelled successfully", download_id);
         Ok(())
     } else {
@@ -646,6 +647,7 @@ fn register_manual_download(
     filename: String,
     path: String,
     active_downloads: State<'_, RwLock<ActiveDownloads>>,
+    app: AppHandle,
 ) -> Result<(), String> {
     println!("Manually registered download: {} at {}", download_id, path);
     let mut downloads = active_downloads
@@ -664,6 +666,10 @@ fn register_manual_download(
             provider: None,
         },
     );
+
+    // Save ActiveDownloads after modification
+    save_active_downloads_to_file(&app, &downloads)?;
+
     Ok(())
 }
 
@@ -719,11 +725,9 @@ async fn start_webview2_download(
         download_id, url, filename
     );
 
-    // Get save folder from download_dir
     let save_folder = get_download_dir(app.clone())?;
     println!("Save folder: {}", save_folder);
 
-    // Make sure the save folder exists
     if !std::path::Path::new(&save_folder).exists() {
         if let Err(e) = std::fs::create_dir_all(&save_folder) {
             println!("Failed to create save folder: {}", e);
@@ -731,7 +735,6 @@ async fn start_webview2_download(
         }
     }
 
-    // Create a cancellation token
     let token = CancellationToken::new();
     {
         let mut downloads = active_downloads
@@ -751,9 +754,11 @@ async fn start_webview2_download(
             },
         );
         downloads.tokens.insert(download_id.clone(), token.clone());
+
+        // Save ActiveDownloads after modification
+        save_active_downloads_to_file(&app, &downloads)?;
     }
 
-    // Create JSON message for WebView2
     let message = serde_json::json!({
         "action": "setDownload",
         "url": url,
@@ -764,12 +769,11 @@ async fn start_webview2_download(
     let message_str = message.to_string();
     println!("Sending message to WebView2: {}", message_str);
 
-    // Find the path of the WebView2 binary
     let app_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app dir: {}", e))?;
-    let  mut binary_path = app
+    let mut binary_path = app
         .path()
         .resource_dir()
         .map_err(|e| format!("Failed to get resource dir: {}", e))?
@@ -777,16 +781,10 @@ async fn start_webview2_download(
         .join("Release")
         .join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe");
 
-    // If the binary doesn't exist at the expected path, try alternative locations
     if !binary_path.exists() {
         println!("Binary not found at: {:?}", binary_path);
 
-        // Define multiple potential locations to check
         let paths_to_check = vec![
-//             app.path().app_log_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-//             app.path().app_data_dir().map(|p| p.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-//             app.path().resource_dir().map(|p| p.join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe")).unwrap_or_default(),
-//             std::path::PathBuf::from("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
             std::path::PathBuf::from("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
         ];
 
@@ -807,7 +805,6 @@ async fn start_webview2_download(
 
     println!("Starting WebView2 binary at: {:?}", binary_path);
 
-    // Run the WebView2 binary and capture stdout/stderr
     let (mut rx, _child) = app
         .shell()
         .command(binary_path.to_str().ok_or("Invalid binary path")?)
@@ -815,11 +812,9 @@ async fn start_webview2_download(
         .spawn()
         .map_err(|e| format!("Failed to spawn WebView2 process: {}", e))?;
 
-    // Clone AppHandle for use in async task
     let app_clone = app.clone();
     let download_id_clone = download_id.clone();
 
-    // Handle stdout/stderr from the CommandEvent Receiver
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
@@ -828,7 +823,6 @@ async fn start_webview2_download(
                     println!("WebView2 stdout: {}", output);
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
                         println!("Parsed WebView2 response: {:?}", json);
-                        // Get the ActiveDownloads state from AppHandle
                         let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                         if let Err(e) = webview2_response(json, app_clone.clone(), active_downloads).await {
                             println!("Error processing WebView2 response: {}", e);
@@ -838,10 +832,8 @@ async fn start_webview2_download(
                 CommandEvent::Stderr(line) => {
                     let output = String::from_utf8_lossy(&line).to_string();
                     println!("WebView2 stderr: {}", output);
-                    // Try to parse stderr as JSON too in case WebView2 sends errors through stderr
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
                         println!("Parsed WebView2 stderr response: {:?}", json);
-                        // Get the ActiveDownloads state from AppHandle
                         let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                         if let Err(e) = webview2_response(json, app_clone.clone(), active_downloads).await {
                             println!("Error processing WebView2 stderr response: {}", e);
@@ -850,7 +842,6 @@ async fn start_webview2_download(
                 }
                 CommandEvent::Error(e) => {
                     println!("WebView2 process error: {}", e);
-                    // Try to emit a generic error with the captured download_id
                     let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                     let error_json = serde_json::json!({
                         "status": "error",
@@ -861,9 +852,7 @@ async fn start_webview2_download(
                 }
                 CommandEvent::Terminated(code) => {
                     println!("WebView2 process terminated with code: {:?}", code);
-                    // If abnormal termination and download is still active, report an error
                     if code.code != Some(0) {
-                        // Check if download is still active without holding the lock across an await
                         let should_report_error = {
                             let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                             match active_downloads.read() {
@@ -881,16 +870,13 @@ async fn start_webview2_download(
                             }
                         };
 
-                        // Only call the async function if needed, after releasing the lock
                         if should_report_error {
-                            // Process terminated without completing the download
                             let error_json = serde_json::json!({
                                 "status": "error",
                                 "message": format!("WebView2 process terminated unexpectedly with code: {:?}", code),
                                 "downloadId": download_id_clone
                             });
 
-                            // Get a fresh state reference for the async call
                             let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                             if let Err(e) = webview2_response(error_json, app_clone.clone(), active_downloads).await {
                                 println!("Error reporting WebView2 termination: {}", e);
@@ -903,7 +889,6 @@ async fn start_webview2_download(
         }
     });
 
-    // Emit event to notify frontend
     app.emit(
         "start-webview2-download",
         &serde_json::json!({
@@ -928,7 +913,6 @@ fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
-            // Call ensure_webview2_runtime here with AppHandle
             #[cfg(target_os = "windows")]
             {
                 ensure_webview2_runtime(&app_handle).expect("Failed to ensure WebView2 runtime");
@@ -949,8 +933,20 @@ fn main() {
                 }
             };
 
+            let mut initial_downloads = match state::load_active_downloads_from_file(&app_handle) {
+                Ok(loaded_downloads) => {
+                    println!("Loaded active downloads successfully: {:?}", loaded_downloads);
+                    loaded_downloads
+                }
+                Err(e) => {
+                    println!("Failed to load active downloads: {}. Using default downloads.", e);
+                    ActiveDownloads::default()
+                }
+            };
+            cleanup_active_downloads(&mut initial_downloads);
+
             app.manage(Mutex::new(initial_state));
-            app.manage(RwLock::new(ActiveDownloads::default()));
+            app.manage(RwLock::new(initial_downloads));
 
             if let Ok(mut app_state) = app.state::<Mutex<AppState>>().lock() {
                 if app_state.download_dir.is_none() {
@@ -987,7 +983,8 @@ fn main() {
             get_saved_games,
             register_manual_download,
             start_webview2_download,
-            webview2_response
+            webview2_response,
+            is_directory
         ])
         .on_window_event(|app, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
@@ -1000,6 +997,15 @@ fn main() {
                     }
                 } else {
                     println!("Failed to lock state on close");
+                }
+                if let Ok(active_downloads) = app.state::<RwLock<ActiveDownloads>>().read() {
+                    if let Err(e) = state::save_active_downloads_to_file(&app_handle, &active_downloads) {
+                        println!("Failed to save active downloads on close: {}", e);
+                    } else {
+                        println!("Active downloads saved successfully on close");
+                    }
+                } else {
+                    println!("Failed to lock active downloads on close");
                 }
             }
         })

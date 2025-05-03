@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
 
 interface DownloadedFile {
     id: string;
@@ -164,7 +163,20 @@ const Games: React.FC = () => {
 
     const handleOpen = async (path: string) => {
         try {
-            await open(path);
+            if (!path) {
+                throw new Error('Path is missing');
+            }
+            const exists = await invoke('check_path_exists', { path });
+            if (!exists) {
+                throw new Error('Path does not exist');
+            }
+            // ตรวจสอบว่าเป็นโฟลเดอร์หรือไฟล์
+            const isDir = await invoke('is_directory', { path });
+            if (isDir) {
+                await invoke('open_directory', { path });
+            } else {
+                await invoke('open_file', { path });
+            }
         } catch (err) {
             console.error(`Failed to open path ${path}:`, err);
             setError(`Failed to open path: ${err}`);
