@@ -1,6 +1,6 @@
 [package]
 name = "chanomhub"
-version = "0.6.0"
+version = "0.7.0"
 description = "A Chanomhub App"
 authors = ["Chnaomhub"]
 edition = "2024"
