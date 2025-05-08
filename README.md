@@ -1,7 +1,5 @@
 # ChanomHub Desktop Application
 
-A cross-platform desktop application for the ChanomHub community, built with Tauri, React, and TypeScript.
-
 ## Overview
 
 ChanomHub Desktop provides a native application experience for interacting with ChanomHub's APIs directly from your desktop. Built on modern technologies, it offers a fast, secure, and seamless experience across Windows, macOS, and Linux.
