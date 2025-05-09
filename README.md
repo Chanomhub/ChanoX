@@ -38,7 +38,7 @@ ChanomHub Desktop provides a native application experience for interacting with 
    pnpm run tauri dev
    ```
 
-### Building for Production
+### Building for Production 🔎
 
 To create a distributable package:
 
