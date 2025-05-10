@@ -1,4 +1,4 @@
-# ChanomHub Desktop Application 🎉🎉
+# ChanomHub Desktop 🎉🎉
 
 ## Overview🆕
 
