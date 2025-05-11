@@ -44,8 +44,8 @@ D:\sever\APP\chanomhub\src-tauri\binaries\Chanoomhub.exe
 D:\sever\APP\chanomhub\src-tauri\binaries\Chanoomhub.pdb
 D:\sever\APP\chanomhub\src-tauri\binaries\Release\runtimes\win-x64\native\WebView2Loader.dll
 D:\sever\APP\chanomhub\src-tauri\binaries\Release\public\icon.ico
-D:\sever\APP\chanomhub\src-tauri\binaries\Release\ConsoleApp2.exe-x86_64-pc-windows-msvc.exe.config
-D:\sever\APP\chanomhub\src-tauri\binaries\Release\ConsoleApp2.exe-x86_64-pc-windows-msvc.exe
-D:\sever\APP\chanomhub\src-tauri\binaries\Release\ConsoleApp2.exe-x86_64-pc-windows-msvc.pdb
-D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.exe-x86_64-pc-windows-msvc.exe
-D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\ConsoleApp2.exe-x86_64-pc-windows-msvc.pdb
+D:\sever\APP\chanomhub\src-tauri\binaries\Release\WebView2-x86_64-pc-windows-msvc.exe.config
+D:\sever\APP\chanomhub\src-tauri\binaries\Release\WebView2-x86_64-pc-windows-msvc.exe
+D:\sever\APP\chanomhub\src-tauri\binaries\Release\WebView2-x86_64-pc-windows-msvc.pdb
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\WebView2-x86_64-pc-windows-msvc.exe
+D:\sever\APP\chanomhub\WebView 2\ConsoleApp2\obj\Release\WebView2-x86_64-pc-windows-msvc.pdb
