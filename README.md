@@ -1,8 +1,6 @@
-# ChanomHub Desktop Application
+# ChanomHub Desktop 🎉🎉
 
-A cross-platform desktop application for the ChanomHub community, built with Tauri, React, and TypeScript.
-
-## Overview
+## Overview🆕
 
 ChanomHub Desktop provides a native application experience for interacting with ChanomHub's APIs directly from your desktop. Built on modern technologies, it offers a fast, secure, and seamless experience across Windows, macOS, and Linux.
 
@@ -22,7 +20,7 @@ ChanomHub Desktop provides a native application experience for interacting with 
 - [Rust](https://www.rust-lang.org/tools/install) (required by Tauri)
 - [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
 
-### Installation
+### Installation ⚙️
 
 1. Clone the repository:
    ```bash
@@ -40,7 +38,7 @@ ChanomHub Desktop provides a native application experience for interacting with 
    pnpm run tauri dev
    ```
 
-### Building for Production
+### Building for Production 🔎
 
 To create a distributable package:
 
@@ -63,11 +61,11 @@ ChanomHub/
 ```
 
 
-## License
+## License 🪪
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## Support 🚉
 
 If you encounter any issues or have questions, please [open an issue](https://github.com/Chanomhub/Chanomhub-Desktop/issues) on GitHub.
 
