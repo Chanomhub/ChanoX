@@ -257,10 +257,10 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Failed to get app directory: {}", e))?;
 
         let paths_to_check = vec![
-            app_dir.join("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
-            app_dir.join("binaries/Release/ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
-            std::path::PathBuf::from("binaries").join("Release").join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
-            std::path::PathBuf::from("binaries/Release/ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
+            app_dir.join("binaries").join("Release").join("WebView2-x86_64-pc-windows-msvc.exe"),
+            app_dir.join("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
+            std::path::PathBuf::from("binaries").join("Release").join("WebView2-x86_64-pc-windows-msvc.exe"),
+            std::path::PathBuf::from("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
         ];
 
         for path in paths_to_check {
@@ -779,13 +779,13 @@ async fn start_webview2_download(
         .map_err(|e| format!("Failed to get resource dir: {}", e))?
         .join("binaries")
         .join("Release")
-        .join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe");
+        .join("WebView2-x86_64-pc-windows-msvc.exe");
 
     if !binary_path.exists() {
         println!("Binary not found at: {:?}", binary_path);
 
         let paths_to_check = vec![
-            std::path::PathBuf::from("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe"),
+            std::path::PathBuf::from("WebView2-x86_64-pc-windows-msvc.exe"),
         ];
 
         let mut found = false;

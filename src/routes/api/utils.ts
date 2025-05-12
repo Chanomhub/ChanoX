@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-const AUTH_TOKEN = "c0b6ce325132628bb0d91338a8d508b54b227db66bf1b68fcb5d2ae3501dc926";
+const AUTH_TOKEN = "d7fc12050f11a0b6a069ec2b40570e83fca767d76a72a05e5bb3c0378fab2355";
 
 // Check if running in a Tauri environment
 export function isTauriAvailable(): boolean {

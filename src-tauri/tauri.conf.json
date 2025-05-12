@@ -33,9 +33,6 @@
     }
   },
   "bundle": {
-    "externalBin": [
-      "binaries/Release/ConsoleApp2.exe"
-    ],
     "resources": [
       "plugins/**/*",
       "downloads",
