@@ -8,6 +8,7 @@ interface DownloadedFile {
     status: string;
     extracted: boolean;
     extractedPath?: string;
+    createdAt: string;
 }
 
 // สร้าง interface ที่สอดคล้องกับ DownloadedGameInfo ใน Rust
@@ -17,6 +18,7 @@ interface SavedGameInfo {
     path: string;
     extracted: boolean;
     extracted_path?: string;
+    created_at: string;
 }
 
 const Games: React.FC = () => {
@@ -26,6 +28,13 @@ const Games: React.FC = () => {
     const [refreshKey, setRefreshKey] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const itemsPerPage = 9; // 3x3 grid
+
+    // Helper function to extract just the filename from a path
+    const getFilenameFromPath = (path: string): string => {
+        // Split by both forward and backward slashes to handle different OS paths
+        const parts = path.split(/[\/\\]/);
+        return parts[parts.length - 1];
+    };
 
     // Fetch downloaded files
     useEffect(() => {
@@ -62,7 +71,8 @@ const Games: React.FC = () => {
                     path: game.path,
                     status: 'completed',
                     extracted: game.extracted,
-                    extractedPath: game.extracted_path
+                    extractedPath: game.extracted_path,
+                    createdAt: game.created_at
                 }));
 
                 // Merge active downloads with saved games, removing duplicates by ID
@@ -73,7 +83,7 @@ const Games: React.FC = () => {
                 });
 
                 const mergedFiles = Array.from(allFilesMap.values());
-                mergedFiles.sort((a, b) => a.filename.localeCompare(b.filename));
+                mergedFiles.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
                 setFiles(mergedFiles);
             } catch (err) {
@@ -117,8 +127,9 @@ const Games: React.FC = () => {
         if (!path) return false;
         const extractedDir = `${path}_extracted`;
         try {
-            const exists = await invoke('check_path_exists', { path: extractedDir }) as boolean;
-            return exists;
+            // Removed unnecessary "as boolean" type assertion
+            const exists = await invoke('check_path_exists', { path: extractedDir });
+            return !!exists; // Double negation ensures we return a boolean
         } catch (err) {
             console.error(`Error checking path ${extractedDir}:`, err);
             return false;
@@ -166,6 +177,7 @@ const Games: React.FC = () => {
             if (!path) {
                 throw new Error('Path is missing');
             }
+            // Also remove unnecessary type assertion here if SonarQube flags it
             const exists = await invoke('check_path_exists', { path });
             if (!exists) {
                 throw new Error('Path does not exist');
@@ -208,7 +220,7 @@ const Games: React.FC = () => {
                 <button className="btn btn-secondary" onClick={() => handleOpen(file.extractedPath!)}>
                     Open Extracted Folder
                 </button>
-                <p className="text-sm">Extracted to: {file.extractedPath}</p>
+                <p className="text-sm">Extracted to: {getFilenameFromPath(file.extractedPath)}</p>
             </div>
         );
     };
@@ -246,7 +258,7 @@ const Games: React.FC = () => {
                             className="btn btn-ghost justify-start"
                             onClick={() => handleOpen(file.path)}
                         >
-                            {file.filename}
+                            {getFilenameFromPath(file.filename)}
                         </button>
                     ))}
                 </div>
@@ -305,14 +317,14 @@ const Games: React.FC = () => {
                             {paginatedFiles.map((file) => (
                                 <div key={file.id} className="card bg-base-100 shadow-xl">
                                     <div className="card-body">
-                                        <h2 className="card-title">{file.filename}</h2>
+                                        <h2 className="card-title">{getFilenameFromPath(file.filename)}</h2>
                                         <p>Status: {file.extracted ? 'Extracted' : 'Not Extracted'}</p>
-                                        <p>Path: {file.path || 'Not available'}</p>
+                                        <p className="text-sm truncate">Path: {file.path || 'Not available'}</p>
                                         <div className="card-actions justify-between">
                                             {file.path && (
                                                 <button
                                                     className="btn btn-outline"
-                                                    onClick={() => handleOpen(file.path!)}
+                                                    onClick={() => handleOpen(file.path)}
                                                 >
                                                     Open File Location
                                                 </button>

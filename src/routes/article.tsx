@@ -72,7 +72,7 @@ const ArticlePage: React.FC = () => {
                 setArticleDetail(article);
 
                 const downloadsResponse = await fetchArticleDownloads(article.id);
-                setArticleDownloads(downloadsResponse.links || []);
+                setArticleDownloads(downloadsResponse || []);
 
                 // Fetch translation files
                 const translationResponse = await fetch(

@@ -19,6 +19,119 @@ interface PluginManifest {
     supported_actions: string[];
 }
 
+// No plugins message component
+const NoPluginsMessage = () => (
+    <div className="card bg-base-200 shadow-xl p-10">
+        <div className="card-body text-center">
+            <h2 className="text-lg font-semibold">No plugins installed</h2>
+            <p className="text-sm text-base-content/70">
+                Add plugins to extend the application's functionality
+            </p>
+        </div>
+    </div>
+);
+
+// Plugin table component
+const PluginsTable = ({
+                          plugins,
+                          pluginDetails,
+                          renderTypeBadge,
+                          renderFunctionBadge,
+                          getHostSupport,
+                          renderStatusBadge,
+                          getPluginStatus,
+                          handleRemovePlugin,
+                          handleTestAction,
+                          setTestAction,
+                          setTestInput,
+                          testAction,
+                          testInput,
+                      }) => (
+    <div className="overflow-x-auto">
+        <table className="table table-zebra w-full">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Version</th>
+                <th>Type</th>
+                <th>Function</th>
+                <th>Supported Hosts</th>
+                <th>Actions</th>
+                <th>Status</th>
+                <th>Controls</th>
+            </tr>
+            </thead>
+            <tbody>
+            {plugins.map((pluginId) => {
+                const plugin = pluginDetails[pluginId];
+                return (
+                    <tr key={pluginId}>
+                        <td className="font-mono text-sm">{pluginId}</td>
+                        <td>{plugin?.name || pluginId}</td>
+                        <td>{plugin?.version || 'Unknown'}</td>
+                        <td>{renderTypeBadge(plugin?.type)}</td>
+                        <td>{renderFunctionBadge(plugin?.plugin_function)}</td>
+                        <td>{plugin?.supported_hosts ? getHostSupport(plugin.supported_hosts) : 'None'}</td>
+                        <td>{plugin?.supported_actions?.join(', ') || 'None'}</td>
+                        <td>{renderStatusBadge(getPluginStatus(pluginId))}</td>
+                        <td>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleRemovePlugin(pluginId)}
+                                    className="btn btn-error btn-sm"
+                                    title="Remove Plugin"
+                                >
+                                    <FiTrash2 size={18} />
+                                </button>
+                                {plugin?.install_instruction && (
+                                    <button
+                                        onClick={() => alert(`Install instruction: ${plugin.install_instruction}`)}
+                                        className="btn btn-info btn-sm"
+                                        title="View Install Instruction"
+                                    >
+                                        <FiInfo size={18} />
+                                    </button>
+                                )}
+                                {plugin?.supported_actions?.length > 0 && (
+                                    <div className="flex gap-2 items-center">
+                                        <select
+                                            onChange={(e) => setTestAction(e.target.value)}
+                                            className="select select-sm select-bordered"
+                                        >
+                                            <option value="">Select Action</option>
+                                            {plugin.supported_actions.map((action) => (
+                                                <option key={action} value={action}>
+                                                    {action}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder="JSON input"
+                                            onChange={(e) => setTestInput(e.target.value)}
+                                            className="input input-sm input-bordered w-32"
+                                        />
+                                        <button
+                                            onClick={() => handleTestAction(pluginId, testAction, testInput)}
+                                            className="btn btn-success btn-sm"
+                                            title="Test Action"
+                                            disabled={!testAction}
+                                        >
+                                            <FiPlay size={18} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </td>
+                    </tr>
+                );
+            })}
+            </tbody>
+        </table>
+    </div>
+);
+
 const PluginManager: React.FC = () => {
     const [plugins, setPlugins] = useState<string[]>([]);
     const [pluginDetails, setPluginDetails] = useState<Record<string, PluginManifest>>({});
@@ -123,11 +236,14 @@ const PluginManager: React.FC = () => {
                 filters: [{ name: 'Plugin Manifest', extensions: ['json'] }],
             });
 
-            if (selected) {
-                const content = await readTextFile(selected as string);
-                setNewPluginManifest(content);
-                setShowAddForm(true);
+            if (typeof selected !== 'string') {
+                setError('No file selected or invalid file');
+                return;
             }
+
+            const content = await readTextFile(selected);
+            setNewPluginManifest(content);
+            setShowAddForm(true);
         } catch (e) {
             setError(`Failed to import plugin: ${e}`);
         }
@@ -163,7 +279,9 @@ const PluginManager: React.FC = () => {
         }
 
         if (plugin.external_binary && !plugin.successful) {
-            return `Missing Binary${plugin.install_instruction ? ` (${plugin.install_instruction})` : ''}`;
+            return plugin.install_instruction
+                ? `Missing Binary (${plugin.install_instruction})`
+                : 'Missing Binary';
         }
 
         return plugin.successful ? 'Active' : 'Inactive';
@@ -183,26 +301,27 @@ const PluginManager: React.FC = () => {
             const displayedHosts = regularHosts.slice(0, 3);
             const wildcardSummary = wildcardHosts.length > 0 ? ' + Wildcards' : '';
             const moreCount = hosts.length - displayedHosts.length;
-            return `${displayedHosts.join(', ')}${wildcardSummary}${moreCount > 0 ? ` +${moreCount} more` : ''}`;
+            const moreText = moreCount > 0 ? ` +${moreCount} more` : '';
+            return `${displayedHosts.join(', ')}${wildcardSummary}${moreText}`;
         }
 
         return [...regularHosts, ...wildcardHosts].join(', ');
     };
 
     const renderStatusBadge = (status: string) => {
-        let colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        let colorClass = 'badge badge-warning';
         let icon = null;
 
         if (status === 'Active') {
-            colorClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            colorClass = 'badge badge-success';
             icon = <FiCheck className="mr-1" />;
         } else if (status.startsWith('Missing Binary')) {
-            colorClass = 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            colorClass = 'badge badge-error';
             icon = <FiX className="mr-1" />;
         }
 
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${colorClass}`}>
+            <span className={`inline-flex items-center ${colorClass}`}>
         {icon}
                 {status}
       </span>
@@ -210,28 +329,26 @@ const PluginManager: React.FC = () => {
     };
 
     const renderTypeBadge = (type?: string) => {
-        const colorClass = type === 'script'
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        const colorClass = type === 'script' ? 'badge badge-primary' : 'badge badge-secondary';
 
         return (
-            <span className={`px-2 py-1 rounded-full text-xs ${colorClass}`}>
+            <span className={colorClass}>
         {type || 'Unknown'}
       </span>
         );
     };
 
     const renderFunctionBadge = (func?: string) => {
-        let colorClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+        let colorClass = 'badge badge-accent';
 
         if (func === 'download') {
-            colorClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            colorClass = 'badge badge-success';
         } else if (func === 'translate') {
-            colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            colorClass = 'badge badge-warning';
         }
 
         return (
-            <span className={`px-2 py-1 rounded-full text-xs ${colorClass}`}>
+            <span className={colorClass}>
         {func || 'Unknown'}
       </span>
         );
@@ -253,26 +370,60 @@ const PluginManager: React.FC = () => {
 }`;
     };
 
+    // Function to render the appropriate content based on loading and plugin state
+    const renderPluginContent = () => {
+        if (isLoading) {
+            return (
+                <div className="text-center py-10">
+                    <span className="loading loading-spinner loading-lg"></span>
+                    <p className="mt-3">Loading plugins...</p>
+                </div>
+            );
+        }
+
+        if (plugins.length === 0) {
+            return <NoPluginsMessage />;
+        }
+
+        return (
+            <PluginsTable
+                plugins={plugins}
+                pluginDetails={pluginDetails}
+                renderTypeBadge={renderTypeBadge}
+                renderFunctionBadge={renderFunctionBadge}
+                getHostSupport={getHostSupport}
+                renderStatusBadge={renderStatusBadge}
+                getPluginStatus={getPluginStatus}
+                handleRemovePlugin={handleRemovePlugin}
+                handleTestAction={handleTestAction}
+                setTestAction={setTestAction}
+                setTestInput={setTestInput}
+                testAction={testAction}
+                testInput={testInput}
+            />
+        );
+    };
+
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Plugin Manager</h1>
-                <div className="flex space-x-2">
+                <h1 className="text-2xl font-bold">Plugin Manager</h1>
+                <div className="flex gap-2">
                     <button
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                        className="btn btn-primary"
                     >
                         <FiPlus className="mr-1" /> Add Plugin
                     </button>
                     <button
                         onClick={handleImportPlugin}
-                        className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+                        className="btn btn-success"
                     >
                         <FiDownload className="mr-1" /> Import
                     </button>
                     <button
                         onClick={loadPlugins}
-                        className="flex items-center px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
+                        className="btn btn-neutral"
                     >
                         <FiRefreshCw className="mr-1" /> Refresh
                     </button>
@@ -280,157 +431,48 @@ const PluginManager: React.FC = () => {
             </div>
 
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex justify-between items-center dark:bg-red-900 dark:border-red-700 dark:text-red-200">
-                    <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-red-700 dark:text-red-200">
+                <div className="alert alert-error mb-4">
+                    <div className="flex-1">
+                        <span>{error}</span>
+                    </div>
+                    <button onClick={() => setError(null)} className="btn btn-ghost btn-sm">
                         <FiX />
                     </button>
                 </div>
             )}
 
             {showAddForm && (
-                <div className="mb-6 p-4 border rounded bg-gray-50 dark:bg-gray-800">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">Add New Plugin</h2>
-                    <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-                        Paste the plugin manifest JSON below:
-                    </p>
-                    <textarea
-                        value={newPluginManifest}
-                        onChange={(e) => setNewPluginManifest(e.target.value)}
-                        className="w-full h-64 p-2 border rounded font-mono text-sm mb-3 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                        placeholder={renderPluginManifestTemplate()}
-                    />
-                    <div className="flex justify-end space-x-2">
-                        <button
-                            onClick={() => setShowAddForm(false)}
-                            className="px-3 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleAddPlugin}
-                            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                        >
-                            Add Plugin
-                        </button>
+                <div className="card bg-base-200 shadow-xl mb-6">
+                    <div className="card-body">
+                        <h2 className="card-title">Add New Plugin</h2>
+                        <p className="text-sm text-base-content/70">
+                            Paste the plugin manifest JSON below:
+                        </p>
+                        <textarea
+                            value={newPluginManifest}
+                            onChange={(e) => setNewPluginManifest(e.target.value)}
+                            className="textarea textarea-bordered w-full h-64 font-mono text-sm"
+                            placeholder={renderPluginManifestTemplate()}
+                        />
+                        <div className="card-actions justify-end">
+                            <button
+                                onClick={() => setShowAddForm(false)}
+                                className="btn btn-neutral"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddPlugin}
+                                className="btn btn-primary"
+                            >
+                                Add Plugin
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {isLoading ? (
-                <div className="text-center py-10">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto dark:border-blue-300"></div>
-                    <p className="mt-3 text-gray-600 dark:text-gray-400">Loading plugins...</p>
-                </div>
-            ) : plugins.length === 0 ? (
-                <div className="text-center py-10 bg-gray-50 rounded border dark:bg-gray-800 dark:border-gray-700">
-                    <p className="text-lg text-gray-600 dark:text-gray-400">No plugins installed</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                        Add plugins to extend the application's functionality
-                    </p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white dark:bg-gray-800 border rounded-lg overflow-hidden dark:border-gray-700">
-                        <thead className="bg-gray-100 dark:bg-gray-700">
-                        <tr>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">ID</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Name</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Version</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Type</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Function</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Supported Hosts</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Actions</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Status</th>
-                            <th className="py-3 px-4 text-left text-gray-700 dark:text-gray-300">Controls</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {plugins.map((pluginId) => {
-                            const plugin = pluginDetails[pluginId];
-                            return (
-                                <tr
-                                    key={pluginId}
-                                    className="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-700"
-                                >
-                                    <td className="py-3 px-4 font-mono text-sm text-gray-800 dark:text-gray-200">
-                                        {pluginId}
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
-                                        {plugin?.name || pluginId}
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
-                                        {plugin?.version || 'Unknown'}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {renderTypeBadge(plugin?.type)}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {renderFunctionBadge(plugin?.plugin_function)}
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
-                                        {plugin?.supported_hosts ? getHostSupport(plugin.supported_hosts) : 'None'}
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-800 dark:text-gray-200">
-                                        {plugin?.supported_actions?.join(', ') || 'None'}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {renderStatusBadge(getPluginStatus(pluginId))}
-                                    </td>
-                                    <td className="py-3 px-4 flex space-x-2">
-                                        <button
-                                            onClick={() => handleRemovePlugin(pluginId)}
-                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                            title="Remove Plugin"
-                                        >
-                                            <FiTrash2 size={18} />
-                                        </button>
-                                        {plugin?.install_instruction && (
-                                            <button
-                                                onClick={() => alert(`Install instruction: ${plugin.install_instruction}`)}
-                                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                                title="View Install Instruction"
-                                            >
-                                                <FiInfo size={18} />
-                                            </button>
-                                        )}
-                                        {plugin?.supported_actions?.length > 0 && (
-                                            <div className="flex space-x-2">
-                                                <select
-                                                    onChange={(e) => setTestAction(e.target.value)}
-                                                    className="select select-sm"
-                                                >
-                                                    <option value="">Select Action</option>
-                                                    {plugin.supported_actions.map((action) => (
-                                                        <option key={action} value={action}>
-                                                            {action}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <input
-                                                    type="text"
-                                                    placeholder="JSON input"
-                                                    onChange={(e) => setTestInput(e.target.value)}
-                                                    className="input input-sm input-bordered w-32"
-                                                />
-                                                <button
-                                                    onClick={() => handleTestAction(pluginId, testAction, testInput)}
-                                                    className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                                                    title="Test Action"
-                                                    disabled={!testAction}
-                                                >
-                                                    <FiPlay size={18} />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            {renderPluginContent()}
         </div>
     );
 };

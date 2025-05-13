@@ -20,13 +20,14 @@ pub struct AppState {
     pub games: Option<Vec<DownloadedGameInfo>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DownloadedGameInfo {
     pub id: String,
     pub filename: String,
     pub path: String,
     pub extracted: bool,
     pub extracted_path: Option<String>,
+    pub created_at: String, // เพิ่มฟิลด์ created_at
 }
 
 impl Default for AppState {

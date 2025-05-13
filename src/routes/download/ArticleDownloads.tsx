@@ -2,7 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { message } from '@tauri-apps/plugin-dialog';
-import { ArticleDownload } from "../components/articles/types/types.ts"; // Import shared interface
+
+interface ArticleDownload {
+    id: number;
+    articleId: number;
+    name: string;
+    url: string;
+    isActive: boolean;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 interface ArticleDownloadsProps {
     downloads: ArticleDownload[];
