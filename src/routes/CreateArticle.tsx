@@ -7,6 +7,7 @@ import SummaryStep from './components/articles/SummaryStep';
 import StepIndicator from './components/articles/StepIndicator';
 import ErrorAlert from './components/articles/ErrorAlert';
 import LoadingIndicator from './components/articles/LoadingIndicator';
+import { JsonDownloadLinksList } from './components/articles/DownloadLinksList';
 import { ArticleFormData, ArticlePayload, DownloadData } from './components/articles/types';
 
 const CreateArticle: React.FC = () => {
@@ -36,6 +37,42 @@ const CreateArticle: React.FC = () => {
     const [response, setResponse] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [jsonInput, setJsonInput] = useState<string>('');
+
+    const handleJsonInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setJsonInput(e.target.value);
+    };
+
+    const handleJsonImport = () => {
+        try {
+            const parsed = JSON.parse(jsonInput);
+            if (Array.isArray(parsed)) {
+                // ตรวจสอบว่าแต่ละ object มีฟิลด์ที่จำเป็น
+                const isValid = parsed.every((link: any) => link.name && link.url && typeof link.isActive === 'boolean');
+                if (!isValid) {
+                    setError('JSON ไม่ถูกต้อง: ลิงค์ทุกอันต้องมี name, url และ isActive');
+                    return;
+                }
+                setDownloadLinks(parsed);
+                setJsonInput('');
+                setError(null);
+            } else {
+                setError('JSON ต้องเป็น array ของลิงค์ดาวน์โหลด');
+            }
+        } catch (err) {
+            setError('JSON ไม่ถูกต้อง กรุณาตรวจสอบรูปแบบ');
+        }
+    };
+
+    const exportDownloadLinks = () => {
+        try {
+            const jsonString = JSON.stringify(downloadLinks, null, 2);
+            navigator.clipboard.writeText(jsonString);
+            alert('คัดลอก JSON ไปยังคลิปบอร์ดแล้ว!');
+        } catch (err) {
+            setError('ไม่สามารถส่งออก JSON ได้');
+        }
+    };
 
     const handleArticleFormChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -170,7 +207,6 @@ const CreateArticle: React.FC = () => {
                 imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
-            // Validate version to ensure it's a valid integer
             const versionNumber = formData.version ? parseInt(formData.version, 10) : 0;
             if (isNaN(versionNumber)) {
                 throw new Error('Version must be a valid number');
@@ -197,7 +233,7 @@ const CreateArticle: React.FC = () => {
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
-                    version: versionNumber, // Send as number
+                    version: versionNumber,
                 },
             };
 
@@ -311,6 +347,7 @@ const CreateArticle: React.FC = () => {
         setPublishNote('');
         setResponse(null);
         setError(null);
+        setJsonInput('');
     };
 
     return (
@@ -331,15 +368,42 @@ const CreateArticle: React.FC = () => {
             )}
 
             {step === 2 && (
-                <DownloadForm
-                    downloadData={downloadData}
-                    handleChange={handleDownloadFormChange}
-                    handleSubmit={handleSubmitDownload}
-                    downloadLinks={downloadLinks}
-                    isLoading={isLoading}
-                    onPrevious={() => setStep(1)}
-                    onNext={() => setStep(3)}
-                />
+                <>
+                    <DownloadForm
+                        downloadData={downloadData}
+                        handleChange={handleDownloadFormChange}
+                        handleSubmit={handleSubmitDownload}
+                        downloadLinks={downloadLinks}
+                        isLoading={isLoading}
+                        onPrevious={() => setStep(1)}
+                        onNext={() => setStep(3)}
+                    />
+                    <div className="mt-6">
+                        <h3 className="text-lg font-semibold mb-2">นำเข้า JSON สำหรับลิงค์ดาวน์โหลด</h3>
+                        <textarea
+                            className="w-full p-2 border rounded"
+                            rows={5}
+                            value={jsonInput}
+                            onChange={handleJsonInputChange}
+                            placeholder='วาง JSON ที่นี่ เช่น [{"name": "File 1", "url": "https://example.com/file1", "isActive": true}, ...]'
+                        />
+                        <div className="mt-2 flex gap-2">
+                            <button
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                onClick={handleJsonImport}
+                            >
+                                นำเข้า JSON
+                            </button>
+                            <button
+                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                                onClick={exportDownloadLinks}
+                            >
+                                ส่งออก JSON
+                            </button>
+                        </div>
+                    </div>
+                    {downloadLinks.length > 0 && <JsonDownloadLinksList jsonString={JSON.stringify(downloadLinks)} />}
+                </>
             )}
 
             {step === 3 && (

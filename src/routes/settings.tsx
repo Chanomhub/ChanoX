@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import clsx from "clsx";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -19,9 +19,10 @@ const LOCAL_STORAGE_KEYS = {
     THEME: 'chanomhub_theme'
 };
 
+const DEFAULT_PROFILE_URL = "https://chanomhub.online/member/settings#profile";
+
 export default function Settings() {
     const { setTheme, theme: currentTheme } = useSettingsContext();
-
     // State
     const [token, setToken] = useState("");
     const [cloudinaryConfig, setCloudinaryConfig] = useState<CloudinaryConfig>({
@@ -118,9 +119,28 @@ export default function Settings() {
         try {
             // Load token
             const retrievedToken = await invoke<string>("get_token");
-            if (typeof retrievedToken === "string") {
+            if (typeof retrievedToken === "string" && retrievedToken) {
                 setToken(retrievedToken);
                 localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, retrievedToken);
+            } else {
+                // Handle empty or expired token
+                setToken(""); // Clear the token state
+                localStorage.removeItem(LOCAL_STORAGE_KEYS.TOKEN); // remove from local storage
+                showStatus(
+                    <>
+                        Token is empty or expired. Please update your token in your{" "}
+                        <a
+                            href={DEFAULT_PROFILE_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline"
+                        >
+                            profile settings
+                        </a>
+                        .
+                    </>,
+                    true
+                );
             }
 
             // Load Cloudinary config

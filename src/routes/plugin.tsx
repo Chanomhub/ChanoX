@@ -31,22 +31,39 @@ const NoPluginsMessage = () => (
     </div>
 );
 
+// Define props interface for PluginsTable
+interface PluginsTableProps {
+    plugins: string[];
+    pluginDetails: Record<string, PluginManifest>;
+    renderTypeBadge: (type?: string) => JSX.Element;
+    renderFunctionBadge: (func?: string) => JSX.Element;
+    getHostSupport: (hosts: string[]) => string;
+    renderStatusBadge: (status: string) => JSX.Element;
+    getPluginStatus: (pluginId: string) => string;
+    handleRemovePlugin: (pluginId: string) => void;
+    handleTestAction: (pluginId: string, action: string, input: string) => void;
+    setTestAction: (action: string) => void;
+    setTestInput: (input: string) => void;
+    testAction: string;
+    testInput: string;
+}
+
 // Plugin table component
-const PluginsTable = ({
-                          plugins,
-                          pluginDetails,
-                          renderTypeBadge,
-                          renderFunctionBadge,
-                          getHostSupport,
-                          renderStatusBadge,
-                          getPluginStatus,
-                          handleRemovePlugin,
-                          handleTestAction,
-                          setTestAction,
-                          setTestInput,
-                          testAction,
-                          testInput,
-                      }) => (
+const PluginsTable: React.FC<PluginsTableProps> = ({
+                                                       plugins,
+                                                       pluginDetails,
+                                                       renderTypeBadge,
+                                                       renderFunctionBadge,
+                                                       getHostSupport,
+                                                       renderStatusBadge,
+                                                       getPluginStatus,
+                                                       handleRemovePlugin,
+                                                       handleTestAction,
+                                                       setTestAction,
+                                                       setTestInput,
+                                                       testAction,
+                                                       testInput,
+                                                   }) => (
     <div className="overflow-x-auto">
         <table className="table table-zebra w-full">
             <thead>
@@ -63,7 +80,7 @@ const PluginsTable = ({
             </tr>
             </thead>
             <tbody>
-            {plugins.map((pluginId) => {
+            {plugins.map((pluginId: string) => {
                 const plugin = pluginDetails[pluginId];
                 return (
                     <tr key={pluginId}>
@@ -100,7 +117,7 @@ const PluginsTable = ({
                                             className="select select-sm select-bordered"
                                         >
                                             <option value="">Select Action</option>
-                                            {plugin.supported_actions.map((action) => (
+                                            {plugin.supported_actions.map((action: string) => (
                                                 <option key={action} value={action}>
                                                     {action}
                                                 </option>
@@ -132,6 +149,7 @@ const PluginsTable = ({
     </div>
 );
 
+// Rest of the PluginManager component remains unchanged
 const PluginManager: React.FC = () => {
     const [plugins, setPlugins] = useState<string[]>([]);
     const [pluginDetails, setPluginDetails] = useState<Record<string, PluginManifest>>({});
@@ -322,9 +340,9 @@ const PluginManager: React.FC = () => {
 
         return (
             <span className={`inline-flex items-center ${colorClass}`}>
-        {icon}
+                {icon}
                 {status}
-      </span>
+            </span>
         );
     };
 
@@ -333,8 +351,8 @@ const PluginManager: React.FC = () => {
 
         return (
             <span className={colorClass}>
-        {type || 'Unknown'}
-      </span>
+                {type || 'Unknown'}
+            </span>
         );
     };
 
@@ -349,8 +367,8 @@ const PluginManager: React.FC = () => {
 
         return (
             <span className={colorClass}>
-        {func || 'Unknown'}
-      </span>
+                {func || 'Unknown'}
+            </span>
         );
     };
 
