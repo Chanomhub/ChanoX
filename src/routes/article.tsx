@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchArticleBySlug, fetchArticleDownloads } from "./api";
-import ArticleDetailModal from "./download/ArticleDetailModal.tsx";
-import { ArticleDownload } from "./components/articles/types/types.ts"; // Import shared interface
+import ArticleDetailModal from "./ArticleDetailModal.tsx";
+
+
 
 // Interfaces
 interface ArticleDetail {
@@ -30,60 +31,57 @@ interface ArticleDetail {
     favoritesCount: number;
 }
 
-interface TranslationFile {
-    id: number;
-    articleId: number;
-    translatorId: number;
-    name: string;
-    description: string;
-    language: string;
-    creditTo: string;
-    fileUrl: string;
-    version: string;
-    articleVersion: number;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-    translator: {
-        id: number;
-        name: string;
-        image: string;
-    };
-    images: string[];
-}
+
 
 const ArticlePage: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
 
     const [articleDetail, setArticleDetail] = useState<ArticleDetail | null>(null);
-    const [articleDownloads, setArticleDownloads] = useState<ArticleDownload[]>([]);
-    const [translationFiles, setTranslationFiles] = useState<TranslationFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchArticleDetails = async () => {
-            if (!slug) return;
+            if (!slug) {
+                console.error("No slug provided in URL");
+                setError("ไม่พบ slug ใน URL");
+                setLoading(false);
+                return;
+            }
 
+            console.log("Fetching article with slug:", slug);
             setLoading(true);
             try {
+                // Fetch article details
                 const article = await fetchArticleBySlug(slug);
+                console.log("Article response:", article);
+                if (!article) {
+                    throw new Error("Article not found");
+                }
                 setArticleDetail(article);
 
+                // Fetch article downloads
                 const downloadsResponse = await fetchArticleDownloads(article.id);
+                console.log("Downloads response:", downloadsResponse);
                 setArticleDownloads(downloadsResponse || []);
 
                 // Fetch translation files
                 const translationResponse = await fetch(
                     `https://api.chanomhub.online/api/translation-files/article/${slug}`
                 );
+                if (!translationResponse.ok) {
+                    throw new Error(`Translation API failed with status: ${translationResponse.status}`);
+                }
                 const translationData = await translationResponse.json();
+                console.log("Translation files response:", translationData);
                 setTranslationFiles(translationData.translationFiles || []);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Error fetching article details:", err);
-                setError("ไม่สามารถโหลดข้อมูลบทความได้");
-                setTranslationFiles([]); // Ensure translationFiles is an empty array on error
+                const errorMessage = err.message || "ไม่สามารถโหลดข้อมูลบทความได้";
+                setError(errorMessage);
+                setTranslationFiles([]);
+                setArticleDownloads([]);
             } finally {
                 setLoading(false);
             }
@@ -93,7 +91,7 @@ const ArticlePage: React.FC = () => {
     }, [slug]);
 
     const handleClose = () => {
-        navigate('/');
+        navigate("/");
     };
 
     if (loading) {
@@ -115,7 +113,7 @@ const ArticlePage: React.FC = () => {
                     <p className="mt-2">{error}</p>
                     <button
                         className="btn btn-primary mt-6"
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate("/")}
                     >
                         กลับสู่หน้าหลัก
                     </button>
@@ -132,7 +130,7 @@ const ArticlePage: React.FC = () => {
                     <p className="mt-2">ไม่พบบทความที่คุณกำลังค้นหา</p>
                     <button
                         className="btn btn-primary mt-6"
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate("/")}
                     >
                         กลับสู่หน้าหลัก
                     </button>
@@ -145,8 +143,7 @@ const ArticlePage: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
             <ArticleDetailModal
                 articleDetail={articleDetail}
-                articleDownloads={articleDownloads}
-                translationFiles={translationFiles}
+
                 loadingDetail={false}
                 onClose={handleClose}
             />

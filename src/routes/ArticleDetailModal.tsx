@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, Heart, Share2, Calendar, Tag, Clock, Bookmark, MessageCircle } from "lucide-react";
-import ImageComponent from "../../component/ImageComponent.tsx";
+import ImageComponent from "../component/ImageComponent.tsx";
 import DOMPurify from "dompurify";
 import ArticleDownloads from "./ArticleDownloads.tsx";
 import TranslationFiles from "./TranslationFiles.tsx";
