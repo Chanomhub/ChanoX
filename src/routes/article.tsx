@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { fetchArticleBySlug, fetchArticleDownloads } from "./api";
 import ArticleDetailModal from "./ArticleDetailModal.tsx";
 
-
-
 // Interfaces
 interface ArticleDetail {
     id: number;
@@ -31,13 +29,46 @@ interface ArticleDetail {
     favoritesCount: number;
 }
 
+interface ArticleDownload {
+    id: number;
+    articleId: number;
+    name: string;
+    url: string;
+    isActive: boolean;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
+interface TranslationFile {
+    id: number;
+    articleId: number;
+    translatorId: number;
+    name: string;
+    description: string;
+    language: string;
+    creditTo: string;
+    fileUrl: string;
+    version: string;
+    articleVersion: number;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    translator: {
+        id: number;
+        name: string;
+        image: string;
+    };
+    images: string[];
+}
 
 const ArticlePage: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
 
     const [articleDetail, setArticleDetail] = useState<ArticleDetail | null>(null);
+    const [articleDownloads, setArticleDownloads] = useState<ArticleDownload[]>([]);
+    const [translationFiles, setTranslationFiles] = useState<TranslationFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +174,8 @@ const ArticlePage: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
             <ArticleDetailModal
                 articleDetail={articleDetail}
-
+                articleDownloads={articleDownloads}
+                translationFiles={translationFiles}
                 loadingDetail={false}
                 onClose={handleClose}
             />
