@@ -160,17 +160,25 @@ pub fn load_state_from_file(app: &AppHandle) -> Result<AppState, String> {
     let config_dir = get_config_dir(app).ok_or("Could not get config directory")?;
     let config_path = config_dir.join("config.json");
 
-    if config_path.exists() {
+    let mut state = if config_path.exists() {
         let contents = fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
         let state: AppState = serde_json::from_str(&contents)
             .map_err(|e| format!("Failed to parse config file: {}", e))?;
-        Ok(state)
+        println!("Loaded state from file: {:?}", state);
+        state
     } else {
-        let mut state = AppState::default();
-        state.download_dir = get_default_download_dir(app);
-        Ok(state)
+        AppState::default()
+    };
+
+    if state.games.is_none() {
+        state.games = Some(Vec::new());
+        println!("Initialized empty games list in loaded state");
     }
+
+    state.download_dir = state.download_dir.or_else(|| get_default_download_dir(app));
+    save_state_to_file(app, &state)?; // บันทึกเพื่อให้แน่ใจว่ามีไฟล์ config.json
+    Ok(state)
 }
 
 pub fn save_state_to_file(app: &AppHandle, state: &AppState) -> Result<(), String> {

@@ -7,7 +7,7 @@ import SummaryStep from './components/articles/SummaryStep';
 import StepIndicator from './components/articles/StepIndicator';
 import ErrorAlert from './components/articles/ErrorAlert';
 import LoadingIndicator from './components/articles/LoadingIndicator';
-import { ArticleFormData, ArticlePayload, DownloadData } from './components/articles/types';
+import { ArticleFormData, ArticlePayload, DownloadData, ArticleDownload } from './components/articles/types/types.ts';
 
 const CreateArticle: React.FC = () => {
     const [step, setStep] = useState<number>(1);
@@ -30,10 +30,10 @@ const CreateArticle: React.FC = () => {
         downloadUrl: '',
         isActive: true,
     });
-    const [downloadLinks, setDownloadLinks] = useState<any[]>([]);
+    const [downloadLinks, setDownloadLinks] = useState<ArticleDownload[]>([]);
     const [articleId, setArticleId] = useState<number | null>(null);
     const [publishNote, setPublishNote] = useState<string>('');
-    const [response, setResponse] = useState<any>(null);
+    const [response, setResponse] = useState<{ article: { id: number; slug?: string }; publishRequest?: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -70,7 +70,7 @@ const CreateArticle: React.FC = () => {
             if (name === 'mainImageFile') {
                 setFormData((prev) => ({
                     ...prev,
-                    mainImageFile: selected,
+                    mainImageFile: selected as string,
                     mainImage: '',
                 }));
             } else if (Array.isArray(selected)) {
@@ -170,7 +170,6 @@ const CreateArticle: React.FC = () => {
                 imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
-            // Validate version to ensure it's a valid integer
             const versionNumber = formData.version ? parseInt(formData.version, 10) : 0;
             if (isNaN(versionNumber)) {
                 throw new Error('Version must be a valid number');
@@ -197,7 +196,7 @@ const CreateArticle: React.FC = () => {
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
-                    version: versionNumber, // Send as number
+                    version: versionNumber,
                 },
             };
 
@@ -271,7 +270,17 @@ const CreateArticle: React.FC = () => {
             }
 
             const data = await result.json();
-            setDownloadLinks((prev) => [...prev, data]);
+            const newDownload: ArticleDownload = {
+                id: data.id,
+                articleId: data.articleId || articleId,
+                name: data.name,
+                url: data.url,
+                isActive: data.isActive,
+                status: data.status || 'APPROVED',
+                createdAt: data.createdAt || new Date().toISOString(),
+                updatedAt: data.updatedAt || new Date().toISOString(),
+            };
+            setDownloadLinks((prev) => [...prev, newDownload]);
             setDownloadData({ downloadName: '', downloadUrl: '', isActive: true });
         } catch (err) {
             const errorMessage =

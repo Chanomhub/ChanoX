@@ -1,28 +1,40 @@
-
-// Types
-export interface ArticleDetail {
-    id: number;
+// src/routes/components/articles/types.ts
+export interface ArticleFormData {
     title: string;
-    slug: string;
     description: string;
     body: string;
-    version: number;
-    createdAt: string;
-    updatedAt: string;
-    status: string;
+    tagList: string;
+    categoryList: string;
+    platformList: string;
+    status: 'DRAFT' | 'PUBLISHED';
+    engine?: 'RENPY' | 'RPGM' | 'UNITY' | 'UNREAL' | '';
     mainImage: string;
-    images: string[];
-    tagList: string[];
-    categoryList: string[];
-    platformList: string[];
-    author: {
-        username: string;
-        bio: string;
-        image: string;
-        following: boolean;
+    images: string;
+    mainImageFile?: string;
+    additionalImageFiles: string[];
+    version?: string;
+}
+
+export interface DownloadData {
+    downloadName: string;
+    downloadUrl: string;
+    isActive: boolean;
+}
+
+export interface ArticlePayload {
+    article: {
+        title: string;
+        description: string;
+        body: string;
+        tagList: string[];
+        categoryList: string[];
+        platformList: string[];
+        status: string;
+        mainImage: string;
+        images: string[];
+        engine?: string;
+        version?: number;
     };
-    favorited: boolean;
-    favoritesCount: number;
 }
 
 export interface ArticleDownload {
@@ -56,4 +68,35 @@ export interface TranslationFile {
         image: string;
     };
     images: string[];
+}
+
+export interface ArticleDetail {
+    id: number;
+    title: string;
+    slug: string;
+    description: string;
+    body: string;
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+    status: string;
+    mainImage: string;
+    images: string[];
+    tagList: string[];
+    categoryList: string[];
+    platformList: string[];
+    author: {
+        username: string;
+        bio: string;
+        image: string;
+        following: boolean;
+    };
+    favorited: boolean;
+    favoritesCount: number;
+}
+
+export interface DownloadData {
+    downloadName: string;
+    downloadUrl: string;
+    isActive: boolean;
 }

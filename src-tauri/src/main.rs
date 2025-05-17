@@ -198,8 +198,23 @@ async fn select_game_executable(app: AppHandle, game_id: String) -> Result<Strin
 async fn launch_game(
     app: AppHandle,
     game_id: String,
-    launch_config: LaunchConfig,
+    launch_config: Option<LaunchConfig>, // เปลี่ยนเป็น Option
+    state: State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
+    let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+
+    // ดึง launch_config จาก AppState หากมี
+    let stored_launch_config = app_state.games
+        .as_ref()
+        .and_then(|games| {
+            games.iter().find(|g| g.id == game_id)
+                .and_then(|game| game.launch_config.clone())
+        });
+
+    // ใช้ launch_config จากพารามิเตอร์ถ้าไม่มีใน AppState
+    let launch_config = stored_launch_config.or(launch_config)
+        .ok_or("No launch configuration provided or found")?;
+
     let executable_path = &launch_config.executable_path;
     let path_obj = Path::new(executable_path);
 
@@ -338,17 +353,17 @@ async fn extract_icon(
 
     #[cfg(not(target_os = "windows"))]
     {
-        let default_icon = app
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource dir: {}", e))?
-            .join("default_icon.png");
-        if default_icon.exists() {
-            fs::copy(&default_icon, &icon_path)
-                .map_err(|e| format!("Failed to copy default icon: {}", e))?;
-        } else {
-            return Err("Default icon not found".to_string());
-        }
+      let default_icon = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?
+        .join("default_icon.png");
+      if default_icon.exists() {
+        fs::copy(&default_icon, &icon_path)
+          .map_err(|e| format!("Failed to copy default icon: {}", e))?;
+      } else {
+        return Err("Default icon not found".to_string());
+      }
     }
 
     Ok(icon_path.to_str().ok_or("Failed to convert path to string")?.to_string())
@@ -363,13 +378,22 @@ async fn save_launch_config(
     app: AppHandle,
 ) -> Result<(), String> {
     let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    if app_state.games.is_none() {
+        app_state.games = Some(Vec::new());
+        println!("Initialized empty games list");
+    }
     if let Some(games) = app_state.games.as_mut() {
         if let Some(game) = games.iter_mut().find(|g| g.id == game_id) {
-            game.launch_config = Some(launch_config);
-            game.icon_path = icon_path;
+            game.launch_config = Some(launch_config.clone());
+            game.icon_path = icon_path.clone();
+            println!("Updated launch config for game_id: {}", game_id);
+        } else {
+            println!("Game with id {} not found", game_id);
+            return Err(format!("Game with id {} not found", game_id));
         }
     }
     save_state_to_file(&app, &app_state)?;
+    println!("Launch config saved to file for game_id: {}", game_id);
     Ok(())
 }
 
@@ -1003,19 +1027,30 @@ fn save_games(
     app: AppHandle,
 ) -> Result<(), String> {
     let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+
+    // ดึง games เดิมจาก app_state เพื่อรักษา launch_config และ icon_path
+    let existing_games = app_state.games.clone().unwrap_or_default();
+
     let converted_games: Vec<DownloadedGameInfo> = games
         .into_iter()
-        .map(|game| DownloadedGameInfo {
-            id: game.id,
-            filename: game.filename,
-            path: game.path.unwrap_or_default(),
-            extracted: game.extracted,
-            extracted_path: game.extracted_path,
-            downloaded_at: game.downloaded_at,
-            launch_config: None,
-            icon_path: None,
+        .map(|game| {
+            // ค้นหา game เดิมที่มี id เดียวกัน
+            let existing_game = existing_games.iter().find(|g| g.id == game.id);
+
+            DownloadedGameInfo {
+                id: game.id,
+                filename: game.filename,
+                path: game.path.unwrap_or_default(),
+                extracted: game.extracted,
+                extracted_path: game.extracted_path,
+                downloaded_at: game.downloaded_at,
+                // รักษา launch_config และ icon_path เดิมถ้ามี
+                launch_config: existing_game.and_then(|g| g.launch_config.clone()),
+                icon_path: existing_game.and_then(|g| g.icon_path.clone()),
+            }
         })
         .collect();
+
     app_state.games = Some(converted_games);
     save_state_to_file(&app, &app_state)?;
     println!("Games saved successfully to config");
@@ -1025,28 +1060,10 @@ fn save_games(
 #[tauri::command]
 fn get_saved_games(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<DownloadInfo>, String> {
+) -> Result<Vec<DownloadedGameInfo>, String> {
     let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
     let games = app_state.games.clone().unwrap_or_default();
-    let converted_games: Vec<DownloadInfo> = games
-        .into_iter()
-        .map(|game| DownloadInfo {
-            id: game.id,
-            filename: game.filename,
-            url: "".to_string(),
-            progress: 100.0,
-            status: "completed".to_string(),
-            path: Some(game.path),
-            error: None,
-            provider: None,
-            downloaded_at: game.downloaded_at,
-            extracted: game.extracted,
-            extracted_path: game.extracted_path,
-            extraction_status: Some(if game.extracted { "completed".to_string() } else { "idle".to_string() }), // Reflect extraction status
-            extraction_progress: Some(if game.extracted { 100.0 } else { 0.0 }), // Reflect extraction progress
-        })
-        .collect();
-    Ok(converted_games)
+    Ok(games) // ส่งคืน DownloadedGameInfo ซึ่งมี launch_config และ icon_path
 }
 
 #[tauri::command]
