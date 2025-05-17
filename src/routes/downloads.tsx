@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect } from "react";
 
 
-export type DownloadItem = {
+interface DownloadItem {
     id: string;
     filename: string;
     url: string;
@@ -13,7 +13,7 @@ export type DownloadItem = {
     path?: string;
     error?: string;
     provider?: string;
-};
+}
 
 export default function DownloadManager() {
     const [downloads, setDownloads] = useState<DownloadItem[]>([]);

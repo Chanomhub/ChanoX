@@ -20,7 +20,6 @@ use std::process::Command as StdCommand;
 use tokio_util::sync::CancellationToken;
 use tauri_plugin_shell::process::CommandEvent;
 use std::sync::Arc;
-use chrono::Utc;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {
@@ -40,7 +39,6 @@ pub struct DownloadInfo {
     path: Option<String>,
     error: Option<String>,
     provider: Option<String>,
-    created_at: String, // ใช้ String เพื่อเก็บ ISO 8601 timestamp (เช่น "2025-05-13T20:53:00Z")
 }
 
 #[tauri::command]
@@ -312,8 +310,6 @@ async fn webview2_response(
         .and_then(|s| s.as_str())
         .unwrap_or("unknown");
 
-
-
     let mut downloads = active_downloads
         .write()
         .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
@@ -332,7 +328,6 @@ async fn webview2_response(
 
         println!("Registering new download from start notification: id={}, filename={}", download_id, filename);
 
-        let now = chrono::Utc::now().to_rfc3339(); // สร้าง timestamp
         let download_info = DownloadInfo {
             id: download_id.to_string(),
             filename: filename.clone(),
@@ -342,7 +337,6 @@ async fn webview2_response(
             path: None,
             error: None,
             provider: Some("webview2".to_string()),
-            created_at: chrono::Utc::now().to_rfc3339(), // Add this line
         };
 
         downloads.downloads.insert(download_id.to_string(), download_info);
@@ -466,7 +460,6 @@ async fn webview2_response(
                 0.0
             };
 
-            let now = chrono::Utc::now().to_rfc3339(); // สร้าง timestamp
             let download_info = DownloadInfo {
                 id: download_id.to_string(),
                 filename: filename.to_string(),
@@ -491,7 +484,6 @@ async fn webview2_response(
                     None
                 },
                 provider: Some("webview2".to_string()),
-                created_at: now, // เพิ่มฟิลด์ created_at
             };
 
             downloads.downloads.insert(download_id.to_string(), download_info);
@@ -672,7 +664,6 @@ fn register_manual_download(
             path: Some(path),
             error: None,
             provider: None,
-            created_at: chrono::Utc::now().to_rfc3339(), // สร้าง timestamp
         },
     );
 
@@ -688,17 +679,13 @@ fn save_games(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state
-        .lock()
-        .map_err(|e| format!("Failed to lock state: {}", e))?; // แปลง PoisonError เป็น String
-    let now = chrono::Utc::now().to_rfc3339();
+    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
     let converted_games: Vec<DownloadedGameInfo> = games.into_iter().map(|game| DownloadedGameInfo {
         id: game.id,
         filename: game.filename,
         path: game.path.unwrap_or_default(),
         extracted: false,
         extracted_path: None,
-        created_at: game.created_at, // แก้ไขในข้อ 3
     }).collect();
     app_state.games = Some(converted_games);
     save_state_to_file(&app, &app_state)?;
@@ -721,7 +708,6 @@ fn get_saved_games(
         path: Some(game.path),
         error: None,
         provider: None,
-        created_at: game.created_at, // Use the existing created_at from DownloadedGameInfo
     }).collect();
     Ok(converted_games)
 }
@@ -751,7 +737,6 @@ async fn start_webview2_download(
 
     let token = CancellationToken::new();
     {
-        let now = Utc::now().to_rfc3339();
         let mut downloads = active_downloads
             .write()
             .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
@@ -766,7 +751,6 @@ async fn start_webview2_download(
                 path: None,
                 error: None,
                 provider: Some("webview2".to_string()),
-                created_at: now,
             },
         );
         downloads.tokens.insert(download_id.clone(), token.clone());

@@ -79,23 +79,7 @@ export default function Settings() {
             // Load Cloudinary config
             const storedCloudinary = localStorage.getItem(LOCAL_STORAGE_KEYS.CLOUDINARY);
             if (storedCloudinary) {
-                const parsed = JSON.parse(storedCloudinary);
-                if (
-                    parsed &&
-                    typeof parsed === "object" &&
-                    "cloud_name" in parsed &&
-                    "api_key" in parsed &&
-                    "api_secret" in parsed
-                ) {
-                    setCloudinaryConfig({
-                        cloud_name: parsed.cloud_name,
-                        api_key: parsed.api_key,
-                        api_secret: parsed.api_secret,
-                    });
-                } else {
-                    console.error("Invalid Cloudinary config in localStorage");
-                    showStatus("Invalid Cloudinary config in localStorage", true);
-                }
+                setCloudinaryConfig(JSON.parse(storedCloudinary) as CloudinaryConfig);
             }
 
             // Load download directory
@@ -117,14 +101,14 @@ export default function Settings() {
         setIsLoading(true);
         try {
             // Load token
-            const retrievedToken = await invoke<string>("get_token");
+            const retrievedToken = await invoke("get_token");
             if (typeof retrievedToken === "string") {
                 setToken(retrievedToken);
                 localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, retrievedToken);
             }
 
             // Load Cloudinary config
-            const config = await invoke<CloudinaryConfig>("get_cloudinary_config");
+            const config = await invoke("get_cloudinary_config") as CloudinaryConfig;
             if (config) {
                 const cloudConfig: CloudinaryConfig = {
                     cloud_name: config.cloud_name || "",
@@ -144,7 +128,7 @@ export default function Settings() {
 
     const loadDownloadDir = async () => {
         try {
-            const dir = await invoke<string>("get_download_dir");
+            const dir = await invoke("get_download_dir") as string;
             setDownloadDir(dir);
             localStorage.setItem(LOCAL_STORAGE_KEYS.DOWNLOAD_DIR, dir);
         } catch (err) {
@@ -206,7 +190,7 @@ export default function Settings() {
         }
 
         try {
-            const result = await invoke<string>("echo_test", { message: "Connection test" });
+            const result = await invoke("echo_test", { message: "Connection test" });
             showStatus(`Connection test successful: ${result}`);
         } catch (err) {
             showStatus(`Connection test failed: ${err}`, true);
@@ -216,7 +200,8 @@ export default function Settings() {
     const verifyCloudinaryConfig = async () => {
         if (isTauriAvailable) {
             try {
-                const config = await invoke<CloudinaryConfig>("get_cloudinary_config");
+                const config = await invoke("get_cloudinary_config") as CloudinaryConfig;
+
                 if (config) {
                     const configStr = JSON.stringify(config, null, 2);
                     showStatus(`Configuration verified: ${configStr}`);
