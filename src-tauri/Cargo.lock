@@ -693,6 +693,7 @@ dependencies = [
  "futures-util",
  "glob",
  "hex",
+ "ico",
  "image",
  "mega",
  "regex",
@@ -715,6 +716,7 @@ dependencies = [
  "tokio-util",
  "unrar",
  "url",
+ "uuid",
  "wry 0.44.1",
  "zip",
 ]

@@ -7,19 +7,27 @@ mod cloudinary;
 mod state;
 mod archiver;
 
-use crate::state::{AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo, save_active_downloads_to_file, load_active_downloads_from_file, cleanup_active_downloads};
+use crate::state::{
+    AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo, save_active_downloads_to_file,
+    load_active_downloads_from_file, cleanup_active_downloads, LaunchConfig, ArticleResponse,
+};
 use tauri_plugin_shell::ShellExt;
 use tauri::{Manager, State, Emitter, AppHandle};
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_dialog::DialogExt;
 use std::collections::HashMap;
 use std::sync::{Mutex, RwLock};
-use std::fs;
+use std::fs::{self, File};
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::process::Command as StdCommand;
 use tokio_util::sync::CancellationToken;
 use tauri_plugin_shell::process::CommandEvent;
-use std::sync::Arc;
+use image::DynamicImage;
+use ico::IconDir;
+use uuid::Uuid;
+
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {
@@ -39,7 +47,11 @@ pub struct DownloadInfo {
     path: Option<String>,
     error: Option<String>,
     provider: Option<String>,
-    downloaded_at: Option<String>, // Store as ISO 8601 string
+    downloaded_at: Option<String>,
+    extracted: bool,
+    extracted_path: Option<String>,
+    extraction_status: Option<String>, // เพิ่ม: idle, extracting, completed, failed
+    extraction_progress: Option<f32>, // เพิ่ม: ความคืบหน้า (0.0 - 100.0)
 }
 
 #[tauri::command]
@@ -52,19 +64,313 @@ fn is_directory(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn unarchive_file(file_path: String, output_dir: String) -> Result<(), String> {
-    archiver::unarchive_file(&file_path, &output_dir)
-        .map_err(|e| match e {
-            archiver::ArchiveError::Io(msg) => format!("IO error: {}", msg),
-            archiver::ArchiveError::UnsupportedFormat(msg) => format!("Unsupported format: {}", msg),
-            archiver::ArchiveError::InvalidArchive(msg) => format!("Invalid archive: {}", msg),
-        })
-}
+async fn unarchive_file(
+    file_path: String,
+    output_dir: String,
+    download_id: String, // เพิ่มเพื่อระบุไฟล์ที่กำลังแตก
+    app: AppHandle,
+) -> Result<(), String> {
+    // ส่งสถานะเริ่มต้น
+    app.emit(
+        "extraction-progress",
+        &serde_json::json!({
+            "downloadId": download_id,
+            "status": "extracting",
+            "progress": 0.0
+        }),
+    ).map_err(|e| format!("Failed to emit extraction progress: {}", e))?;
 
+    // อัปเดตสถานะใน active downloads
+    {
+        let active_downloads = app.state::<RwLock<ActiveDownloads>>();
+        let mut downloads = active_downloads
+            .write()
+            .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
+        if let Some(download) = downloads.downloads.get_mut(&download_id) {
+            download.extraction_status = Some("extracting".to_string());
+            download.extraction_progress = Some(0.0);
+        }
+        save_active_downloads_to_file(&app, &downloads)?;
+    }
+
+    // เรียกฟังก์ชันแตกไฟล์
+    let result = archiver::unarchive_file_with_progress(
+        &file_path,
+        &output_dir,
+        |progress| {
+            // ส่งความคืบหน้า (ถ้า library รองรับ)
+            app.emit(
+                "extraction-progress",
+                &serde_json::json!({
+                    "downloadId": download_id,
+                    "status": "extracting",
+                    "progress": progress
+                }),
+            ).ok();
+        },
+    );
+
+    match result {
+        Ok(_) => {
+            // อัปเดตสถานะเมื่อสำเร็จ
+            app.emit(
+                "extraction-progress",
+                &serde_json::json!({
+                    "downloadId": download_id,
+                    "status": "completed",
+                    "progress": 100.0
+                }),
+            ).map_err(|e| format!("Failed to emit extraction complete: {}", e))?;
+
+            {
+                let active_downloads = app.state::<RwLock<ActiveDownloads>>();
+                let mut downloads = active_downloads
+                    .write()
+                    .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
+                if let Some(download) = downloads.downloads.get_mut(&download_id) {
+                    download.extraction_status = Some("completed".to_string());
+                    download.extraction_progress = Some(100.0);
+                    download.extracted = true;
+                    download.extracted_path = Some(output_dir.clone());
+                }
+                save_active_downloads_to_file(&app, &downloads)?;
+            }
+
+            app.notification()
+                .builder()
+                .title("Extraction Complete")
+                .body(format!("File extracted to {}", output_dir))
+                .show()
+                .map_err(|e| format!("Failed to show notification: {}", e))?;
+
+            Ok(())
+        }
+        Err(e) => {
+            // อัปเดตสถานะเมื่อล้มเหลว
+            app.emit(
+                "extraction-progress",
+                &serde_json::json!({
+                    "downloadId": download_id,
+                    "status": "failed",
+                    "progress": 0.0,
+                    "error": e.to_string()
+                }),
+            ).map_err(|e| format!("Failed to emit extraction error: {}", e))?;
+
+            {
+                let active_downloads = app.state::<RwLock<ActiveDownloads>>();
+                let mut downloads = active_downloads
+                    .write()
+                    .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
+                if let Some(download) = downloads.downloads.get_mut(&download_id) {
+                    download.extraction_status = Some("failed".to_string());
+                    download.extraction_progress = Some(0.0);
+                }
+                save_active_downloads_to_file(&app, &downloads)?;
+            }
+
+            Err(e.to_string())
+        }
+    }
+}
 
 #[tauri::command]
 async fn check_path_exists(path: String) -> Result<bool, String> {
     Ok(std::path::Path::new(&path).exists())
+}
+
+#[tauri::command]
+async fn select_game_executable(app: AppHandle, game_id: String) -> Result<String, String> {
+    let dialog = app.dialog().file().add_filter("Executable Files", &["exe", "py", "sh"]);
+    let result = dialog.blocking_pick_file();
+
+    match result {
+        Some(file_path) => {
+            // Convert the FilePath to a String
+            let path_str = file_path.to_string();
+            Ok(path_str)
+        }
+        None => Err("No file selected".to_string()),
+    }
+}
+
+#[tauri::command]
+async fn launch_game(
+    app: AppHandle,
+    game_id: String,
+    launch_config: LaunchConfig,
+) -> Result<(), String> {
+    let executable_path = &launch_config.executable_path;
+    let path_obj = Path::new(executable_path);
+
+    if !path_obj.exists() {
+        return Err("Executable does not exist".to_string());
+    }
+
+    let launch_method = &launch_config.launch_method;
+    match launch_method.as_str() {
+        "direct" => {
+            #[cfg(target_os = "windows")]
+            {
+                StdCommand::new(executable_path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to launch: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Direct launch only supported on Windows".to_string());
+            }
+        }
+        "python" => {
+            let python_check = StdCommand::new("python3").arg("--version").output();
+            if python_check.is_err() {
+                return Err("Python3 is not installed".to_string());
+            }
+            StdCommand::new("python3")
+                .arg(executable_path)
+                .spawn()
+                .map_err(|e| format!("Failed to launch Python script: {}", e))?;
+        }
+        "wine" => {
+            #[cfg(not(target_os = "windows"))]
+            {
+                let wine_check = StdCommand::new("wine").arg("--version").output();
+                if wine_check.is_err() {
+                    return Err("Wine is not installed".to_string());
+                }
+                StdCommand::new("wine")
+                    .arg(executable_path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to launch with Wine: {}", e))?;
+            }
+            #[cfg(target_os = "windows")]
+            {
+                return Err("Wine not needed on Windows".to_string());
+            }
+        }
+        "custom" => {
+            if let Some(cmd) = &launch_config.custom_command {
+                StdCommand::new("sh")
+                    .arg("-c")
+                    .arg(cmd)
+                    .spawn()
+                    .map_err(|e| format!("Failed to launch custom command: {}", e))?;
+            } else {
+                return Err("Custom command not provided".to_string());
+            }
+        }
+        _ => return Err("Invalid launch method".to_string()),
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn extract_icon(
+    app: AppHandle,
+    executable_path: String,
+) -> Result<String, String> {
+    let path_obj = Path::new(&executable_path);
+    if !path_obj.exists() {
+        return Err("Executable does not exist".to_string());
+    }
+
+    let icon_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("icons")
+        .join(format!("{}.png", Uuid::new_v4()));
+
+    fs::create_dir_all(icon_path.parent().unwrap())
+        .map_err(|e| format!("Failed to create icons dir: {}", e))?;
+
+    #[cfg(target_os = "windows")]
+    {
+        if executable_path.to_lowercase().ends_with(".exe") {
+            let file = File::open(&executable_path)
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+            let icon_dir_result = IconDir::read(file);
+            let icon_image = match icon_dir_result {
+                Ok(icon_dir) => {
+                    let entry = icon_dir
+                        .entries()
+                        .first()
+                        .ok_or("No icons found in executable")?;
+                    entry
+                        .decode()
+                        .map_err(|e| format!("Failed to decode icon: {}", e))?
+                }
+                Err(e) => {
+                    println!("Icon extraction failed: {}. Using default icon.", e);
+                    // Use a default icon
+                    let default_icon = app
+                        .path()
+                        .resource_dir()
+                        .map_err(|e| format!("Failed to get resource dir: {}", e))?
+                        .join("default_icon.png");
+                    if default_icon.exists() {
+                        fs::copy(&default_icon, &icon_path)
+                            .map_err(|e| format!("Failed to copy default icon: {}", e))?;
+                        return Ok(icon_path.to_str().ok_or("Failed to convert path to string")?.to_string());
+                    } else {
+                        return Err("Default icon not found and icon extraction failed".to_string());
+                    }
+                }
+            };
+
+            let rgba = icon_image.rgba_data();
+            let img = image::RgbaImage::from_raw(
+                icon_image.width(),
+                icon_image.height(),
+                rgba.to_vec(),
+            )
+            .ok_or("Failed to create RGBA image")?;
+            let dynamic_img = DynamicImage::ImageRgba8(img);
+
+            dynamic_img
+                .save_with_format(&icon_path, image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to save icon: {}", e))?;
+        } else {
+            return Err("Only .exe files supported for icon extraction on Windows".to_string());
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let default_icon = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("Failed to get resource dir: {}", e))?
+            .join("default_icon.png");
+        if default_icon.exists() {
+            fs::copy(&default_icon, &icon_path)
+                .map_err(|e| format!("Failed to copy default icon: {}", e))?;
+        } else {
+            return Err("Default icon not found".to_string());
+        }
+    }
+
+    Ok(icon_path.to_str().ok_or("Failed to convert path to string")?.to_string())
+}
+
+#[tauri::command]
+async fn save_launch_config(
+    game_id: String,
+    launch_config: LaunchConfig,
+    icon_path: Option<String>,
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+) -> Result<(), String> {
+    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    if let Some(games) = app_state.games.as_mut() {
+        if let Some(game) = games.iter_mut().find(|g| g.id == game_id) {
+            game.launch_config = Some(launch_config);
+            game.icon_path = icon_path;
+        }
+    }
+    save_state_to_file(&app, &app_state)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -211,7 +517,7 @@ fn open_directory(path: String, app: AppHandle) -> Result<(), String> {
 async fn fetch_article_by_slug(
     slug: String,
     token: Option<String>,
-) -> Result<state::ArticleResponse, String> {
+) -> Result<ArticleResponse, String> {
     state::fetch_article_by_slug(slug, token).await
 }
 
@@ -338,7 +644,11 @@ async fn webview2_response(
             path: None,
             error: None,
             provider: Some("webview2".to_string()),
-            downloaded_at: None, // Add this
+            downloaded_at: None,
+            extracted: false,
+            extracted_path: None,
+            extraction_status: Some("idle".to_string()), // Default to "idle"
+            extraction_progress: Some(0.0),             // Default to 0.0
         };
 
         downloads.downloads.insert(download_id.to_string(), download_info);
@@ -487,7 +797,11 @@ async fn webview2_response(
                     None
                 },
                 provider: Some("webview2".to_string()),
-                downloaded_at: None, // Add this
+                downloaded_at: None,
+                extracted: false,
+                extracted_path: None,
+                extraction_status: Some("idle".to_string()), // Default to "idle"
+                extraction_progress: Some(0.0),             // Default to 0.0
             };
 
             downloads.downloads.insert(download_id.to_string(), download_info);
@@ -524,9 +838,7 @@ async fn webview2_response(
         downloads.tokens.remove(download_id);
     }
 
-    // Save ActiveDownloads after modification
     save_active_downloads_to_file(&app, &downloads)?;
-
     Ok(())
 }
 
@@ -629,9 +941,7 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
             format!("Download {} was cancelled", download_id),
         )?;
 
-        // Save ActiveDownloads after modification
         save_active_downloads_to_file(&app, &downloads)?;
-
         println!("Download {} cancelled successfully", download_id);
         Ok(())
     } else {
@@ -657,6 +967,11 @@ fn register_manual_download(
     let mut downloads = active_downloads
         .write()
         .map_err(|e| format!("Failed to write active downloads: {}", e))?;
+
+    // Check if extracted path exists
+    let extracted_path = format!("{}_extracted", path);
+    let extracted = std::path::Path::new(&extracted_path).exists();
+
     downloads.downloads.insert(
         download_id.clone(),
         DownloadInfo {
@@ -665,18 +980,21 @@ fn register_manual_download(
             url: "".to_string(),
             progress: 100.0,
             status: "completed".to_string(),
-            path: Some(path),
+            path: Some(path.clone()),
             error: None,
             provider: None,
-            downloaded_at: Some(chrono::Utc::now().to_rfc3339()), // Add this
+            downloaded_at: Some(chrono::Utc::now().to_rfc3339()),
+            extracted,
+            extracted_path: if extracted { Some(extracted_path) } else { None },
+            extraction_status: Some(if extracted { "completed".to_string() } else { "idle".to_string() }), // Reflect extraction status
+            extraction_progress: Some(if extracted { 100.0 } else { 0.0 }), // Reflect extraction progress
         },
     );
 
-    // Save ActiveDownloads after modification
     save_active_downloads_to_file(&app, &downloads)?;
-
     Ok(())
 }
+
 
 #[tauri::command]
 fn save_games(
@@ -685,14 +1003,19 @@ fn save_games(
     app: AppHandle,
 ) -> Result<(), String> {
     let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
-    let converted_games: Vec<DownloadedGameInfo> = games.into_iter().map(|game| DownloadedGameInfo {
-        id: game.id,
-        filename: game.filename,
-        path: game.path.unwrap_or_default(),
-        extracted: false,
-        extracted_path: None,
-        downloaded_at: game.downloaded_at,
-    }).collect();
+    let converted_games: Vec<DownloadedGameInfo> = games
+        .into_iter()
+        .map(|game| DownloadedGameInfo {
+            id: game.id,
+            filename: game.filename,
+            path: game.path.unwrap_or_default(),
+            extracted: game.extracted,
+            extracted_path: game.extracted_path,
+            downloaded_at: game.downloaded_at,
+            launch_config: None,
+            icon_path: None,
+        })
+        .collect();
     app_state.games = Some(converted_games);
     save_state_to_file(&app, &app_state)?;
     println!("Games saved successfully to config");
@@ -705,17 +1028,24 @@ fn get_saved_games(
 ) -> Result<Vec<DownloadInfo>, String> {
     let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
     let games = app_state.games.clone().unwrap_or_default();
-    let converted_games: Vec<DownloadInfo> = games.into_iter().map(|game| DownloadInfo {
-        id: game.id,
-        filename: game.filename,
-        url: "".to_string(),
-        progress: 100.0,
-        status: "completed".to_string(),
-        path: Some(game.path),
-        error: None,
-        provider: None,
-        downloaded_at: game.downloaded_at,
-    }).collect();
+    let converted_games: Vec<DownloadInfo> = games
+        .into_iter()
+        .map(|game| DownloadInfo {
+            id: game.id,
+            filename: game.filename,
+            url: "".to_string(),
+            progress: 100.0,
+            status: "completed".to_string(),
+            path: Some(game.path),
+            error: None,
+            provider: None,
+            downloaded_at: game.downloaded_at,
+            extracted: game.extracted,
+            extracted_path: game.extracted_path,
+            extraction_status: Some(if game.extracted { "completed".to_string() } else { "idle".to_string() }), // Reflect extraction status
+            extraction_progress: Some(if game.extracted { 100.0 } else { 0.0 }), // Reflect extraction progress
+        })
+        .collect();
     Ok(converted_games)
 }
 
@@ -758,12 +1088,15 @@ async fn start_webview2_download(
                 path: None,
                 error: None,
                 provider: Some("webview2".to_string()),
-                downloaded_at: None, // Add this
+                downloaded_at: None,
+                extracted: false,
+                extracted_path: None,
+                extraction_status: Some("idle".to_string()), // Default to "idle"
+                extraction_progress: Some(0.0),             // Default to 0.0
             },
         );
         downloads.tokens.insert(download_id.clone(), token.clone());
 
-        // Save ActiveDownloads after modification
         save_active_downloads_to_file(&app, &downloads)?;
     }
 
@@ -992,7 +1325,11 @@ fn main() {
             register_manual_download,
             start_webview2_download,
             webview2_response,
-            is_directory
+            is_directory,
+            select_game_executable,
+            launch_game,
+            extract_icon,
+            save_launch_config
         ])
         .on_window_event(|app, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use crate::ActiveDownloads;
 
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudinaryConfig {
     pub cloud_name: String,
@@ -21,13 +22,27 @@ pub struct AppState {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LaunchConfig {
+    #[serde(rename = "executablePath")]
+    pub executable_path: String,
+
+    #[serde(rename = "launchMethod")]
+    pub launch_method: String,
+
+    #[serde(rename = "customCommand")]
+    pub custom_command: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DownloadedGameInfo {
     pub id: String,
     pub filename: String,
     pub path: String,
     pub extracted: bool,
     pub extracted_path: Option<String>,
-    pub downloaded_at: Option<String>, // Store as ISO 8601 string
+    pub downloaded_at: Option<String>,
+    pub launch_config: Option<LaunchConfig>, // New field
+    pub icon_path: Option<String>, // New field
 }
 
 impl Default for AppState {

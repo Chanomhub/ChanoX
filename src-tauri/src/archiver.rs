@@ -1,4 +1,4 @@
-// src/archiver.rs
+use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -13,6 +13,18 @@ pub enum ArchiveError {
     InvalidArchive(String),
 }
 
+impl fmt::Display for ArchiveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArchiveError::Io(err) => write!(f, "IO error: {}", err),
+            ArchiveError::UnsupportedFormat(err) => write!(f, "Unsupported format: {}", err),
+            ArchiveError::InvalidArchive(err) => write!(f, "Invalid archive: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for ArchiveError {}
+
 impl From<std::io::Error> for ArchiveError {
     fn from(err: std::io::Error) -> Self {
         ArchiveError::Io(err.to_string())
@@ -25,8 +37,14 @@ impl From<zip::result::ZipError> for ArchiveError {
     }
 }
 
-/// Unarchives the file located at `file_path` into the directory `output_dir`.
-pub fn unarchive_file(file_path: &str, output_dir: &str) -> Result<(), ArchiveError> {
+pub fn unarchive_file_with_progress<F>(
+    file_path: &str,
+    output_dir: &str,
+    progress_callback: F,
+) -> Result<(), ArchiveError>
+where
+    F: Fn(f32),
+{
     let path = Path::new(file_path);
     let extension = path
         .extension()
@@ -34,13 +52,12 @@ pub fn unarchive_file(file_path: &str, output_dir: &str) -> Result<(), ArchiveEr
         .map(|ext| ext.to_lowercase())
         .ok_or_else(|| ArchiveError::UnsupportedFormat("No file extension".to_string()))?;
 
-    // Create output directory if it doesn't exist.
     fs::create_dir_all(output_dir)?;
 
     match extension.as_str() {
-        "zip" => extract_zip(file_path, output_dir),
-        "7z" => extract_7z(file_path, output_dir),
-        "rar" => extract_rar(file_path, output_dir),
+        "zip" => extract_zip(file_path, output_dir, progress_callback),
+        "7z" => extract_7z(file_path, output_dir, progress_callback),
+        "rar" => extract_rar(file_path, output_dir, progress_callback),
         _ => Err(ArchiveError::UnsupportedFormat(format!(
             "Unsupported file format: {}",
             extension
@@ -48,10 +65,13 @@ pub fn unarchive_file(file_path: &str, output_dir: &str) -> Result<(), ArchiveEr
     }
 }
 
-/// Extract ZIP archives using the `zip` crate.
-fn extract_zip(file_path: &str, output_dir: &str) -> Result<(), ArchiveError> {
+fn extract_zip<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+where
+    F: Fn(f32),
+{
     let file = File::open(file_path)?;
     let mut archive = ZipArchive::new(file)?;
+    let total_files = archive.len() as f32;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
@@ -69,27 +89,37 @@ fn extract_zip(file_path: &str, output_dir: &str) -> Result<(), ArchiveError> {
             let mut outfile = File::create(&output_path)?;
             io::copy(&mut file, &mut outfile)?;
         }
+
+        // Report progress
+        let progress = ((i + 1) as f32 / total_files) * 100.0;
+        progress_callback(progress);
     }
     Ok(())
 }
 
-/// Extract 7z archives using the `sevenz_rust` crate.
-fn extract_7z(file_path: &str, output_dir: &str) -> Result<(), ArchiveError> {
+fn extract_7z<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+where
+    F: Fn(f32),
+{
+    // sevenz_rust does not support progress callbacks directly
+    progress_callback(0.0);
     decompress_file(file_path, output_dir)
         .map_err(|e| ArchiveError::InvalidArchive(e.to_string()))?;
+    progress_callback(100.0);
     Ok(())
 }
 
-/// Extract RAR archives by calling the system’s unrar executable.
-/// Note: Make sure that the `unrar` command is installed on your system.
-fn extract_rar(file_path: &str, output_dir: &str) -> Result<(), ArchiveError> {
-    // Create the output directory (if necessary) for extraction.
+fn extract_rar<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+where
+    F: Fn(f32),
+{
     fs::create_dir_all(output_dir)?;
-    // Run the unrar command with 'x' (extract with full paths)
+    progress_callback(0.0);
     let status = Command::new("unrar")
         .args(&["x", file_path, output_dir])
         .status()?;
     if status.success() {
+        progress_callback(100.0);
         Ok(())
     } else {
         Err(ArchiveError::InvalidArchive("RAR extraction failed".to_string()))
