@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { X, Heart } from "lucide-react";
 import DOMPurify from "dompurify";
 import { ArticleDownloads } from "../../download/ArticleDownloads.tsx";
@@ -15,8 +16,68 @@ export const ArticleDetailModal: React.FC<{
     const [activeTab, setActiveTab] = useState<'content' | 'gallery' | 'downloads' | 'translations'>('content');
     const [isFavorited, setIsFavorited] = useState(articleDetail?.favorited || false);
     const [favoritesCount, setFavoritesCount] = useState(articleDetail?.favoritesCount || 0);
+    const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+    const [token, setToken] = useState<string | null>(null);
+
+    // Fetch token when component mounts
+    useEffect(() => {
+        const fetchToken = async () => {
+            try {
+                const fetchedToken: string | null = await invoke("get_token");
+                setToken(fetchedToken);
+            } catch (error) {
+                console.error("Failed to fetch token:", error);
+            }
+        };
+        fetchToken();
+    }, []);
 
     if (!articleDetail && !loadingDetail) return <div className="text-center">ไม่พบรายละเอียดบทความ</div>;
+
+    const handleFavorite = async () => {
+        if (!articleDetail?.slug) {
+            console.error("Article slug is missing");
+            alert("Cannot favorite article: Article details are incomplete.");
+            return;
+        }
+
+        if (!token) {
+            console.error("No authentication token available");
+            alert("Please log in to favorite this article.");
+            return;
+        }
+
+        setIsLoadingFavorite(true);
+        try {
+            const method = isFavorited ? 'DELETE' : 'POST';
+            const response = await fetch(`https://api.chanomhub.online/api/articles/${articleDetail.slug}/favorite`, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setIsFavorited(!isFavorited);
+                setFavoritesCount(data.article.favoritesCount);
+            } else if (response.status === 401) {
+                console.error("Unauthorized: Invalid or expired token");
+                alert("Your session has expired. Please log in again.");
+                // Optionally, trigger a re-authentication flow here
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to update favorite status:', errorData.message);
+                alert(`Error: ${errorData.message}`);
+            }
+        } catch (error) {
+            console.error('Error updating favorite:', error);
+            alert("An error occurred while updating favorite status.");
+        } finally {
+            setIsLoadingFavorite(false);
+        }
+    };
 
     return (
         <div className="bg-base-100 rounded-xl max-w-5xl w-full shadow-2xl">
@@ -99,11 +160,9 @@ export const ArticleDetailModal: React.FC<{
                                         )}
                                     </div>
                                     <button
-                                        className="btn btn-sm"
-                                        onClick={() => {
-                                            setIsFavorited(!isFavorited);
-                                            setFavoritesCount(isFavorited ? favoritesCount - 1 : favoritesCount + 1);
-                                        }}
+                                        className={`btn btn-sm ${isLoadingFavorite ? 'loading' : ''}`}
+                                        onClick={handleFavorite}
+                                        disabled={isLoadingFavorite}
                                     >
                                         <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
                                         <span>{favoritesCount}</span>
@@ -114,7 +173,7 @@ export const ArticleDetailModal: React.FC<{
                                 <div
                                     className="prose max-w-none"
                                     dangerouslySetInnerHTML={{
-                                        __html: DOMPurify.sanitize(articleDetail.body)
+                                        __html: DOMPurify.sanitize(articleDetail.body),
                                     }}
                                 />
                             </div>
@@ -145,7 +204,9 @@ export const ArticleDetailModal: React.FC<{
             ) : (
                 <div className="text-center py-12">
                     <p>ไม่พบรายละเอียดบทความ</p>
-                    <button className="btn btn-primary mt-6" onClick={onClose}>ปิด</button>
+                    <button className="btn btn-primary mt-6" onClick={onClose}>
+                        ปิด
+                    </button>
                 </div>
             )}
         </div>
