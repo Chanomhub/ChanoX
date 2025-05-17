@@ -1,15 +1,13 @@
 use crate::state::CloudinaryConfig;
 use chrono;
 use hex;
+use image::ImageFormat;
+use image::io::Reader as ImageReader;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::fs;
-use image::io::Reader as ImageReader;
-use image::ImageFormat;
 use std::io::Cursor;
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct CloudinaryResponse {
@@ -26,8 +24,8 @@ pub async fn upload_to_cloudinary(
     let client = Client::new();
 
     // ตรวจสอบขนาดไฟล์ก่อนอัปโหลด
-    let metadata = fs::metadata(&file_path)
-        .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    let metadata =
+        fs::metadata(&file_path).map_err(|e| format!("Failed to read file metadata: {}", e))?;
     let file_size = metadata.len();
     const MAX_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
     let mut temp_file_path = file_path.clone();
@@ -62,8 +60,8 @@ pub async fn upload_to_cloudinary(
         }
     }
 
-    let file_bytes = fs::read(&temp_file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let file_bytes =
+        fs::read(&temp_file_path).map_err(|e| format!("Failed to read file: {}", e))?;
     let file_part = reqwest::multipart::Part::bytes(file_bytes)
         .file_name(temp_file_path.clone())
         .mime_str("application/octet-stream")
@@ -111,8 +109,12 @@ pub async fn upload_to_cloudinary(
         );
     }
 
-    let result: CloudinaryResponse = serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Raw response: {}", e, response_text))?;
+    let result: CloudinaryResponse = serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Raw response: {}",
+            e, response_text
+        )
+    })?;
     Ok(result.secure_url)
 }
 
@@ -127,14 +129,10 @@ fn convert_gif_to_webp(input_path: &str) -> Result<String, String> {
     let mut buffer = Vec::new();
 
     // Save the image as WebP to the buffer
-    img.write_to(
-        &mut Cursor::new(&mut buffer),
-        image::ImageFormat::WebP,
-    )
-    .map_err(|e| format!("Failed to convert to WebP: {}", e))?;
+    img.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::WebP)
+        .map_err(|e| format!("Failed to convert to WebP: {}", e))?;
 
-    fs::write(&output_path, buffer)
-        .map_err(|e| format!("Failed to write WebP file: {}", e))?;
+    fs::write(&output_path, buffer).map_err(|e| format!("Failed to write WebP file: {}", e))?;
     Ok(output_path)
 }
 

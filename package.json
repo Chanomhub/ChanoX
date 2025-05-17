@@ -14,7 +14,9 @@
     "tauri:build:linux:arm64": "tauri build --target aarch64-unknown-linux-gnu",
     "tauri:build:mac:x64": "tauri build --target x86_64-apple-darwin",
     "tauri:build:mac:arm64": "tauri build --target aarch64-apple-darwin",
-    "tauri:build:all": "pnpm tauri:build:x64 && pnpm tauri:build:x32"
+    "tauri:build:all": "bun tauri:build:x64 && pnpm tauri:build:x32",
+    "date:windows": "powershell -Command \"[System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')\"",
+    "date:linux": "date -u +\"%Y-%m-%dT%H:%M:%SZ\""
   },
   "dependencies": {
     "@tabler/icons-react": "^3.31.0",
@@ -26,6 +28,7 @@
     "@tauri-apps/plugin-opener": "^2.2.6",
     "@tauri-apps/plugin-os": "^2.2.1",
     "@tauri-apps/plugin-shell": "^2.2.1",
+    "@tauri-apps/plugin-updater": "^2.7.1",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^22.15.3",
     "axios": "^1.9.0",

@@ -1,10 +1,9 @@
+use crate::ActiveDownloads;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
-use crate::ActiveDownloads;
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudinaryConfig {
@@ -42,7 +41,7 @@ pub struct DownloadedGameInfo {
     pub extracted_path: Option<String>,
     pub downloaded_at: Option<String>,
     pub launch_config: Option<LaunchConfig>, // New field
-    pub icon_path: Option<String>, // New field
+    pub icon_path: Option<String>,           // New field
 }
 
 impl Default for AppState {
@@ -63,7 +62,10 @@ pub struct ArticleResponse {
     pub content: String,
 }
 
-pub async fn fetch_article_by_slug(slug: String, token: Option<String>) -> Result<ArticleResponse, String> {
+pub async fn fetch_article_by_slug(
+    slug: String,
+    token: Option<String>,
+) -> Result<ArticleResponse, String> {
     let api_url = format!("https://api.chanomhub.online/articles/{}", slug);
 
     let client = reqwest::Client::new();
@@ -188,7 +190,8 @@ pub fn save_state_to_file(app: &AppHandle, state: &AppState) -> Result<(), Strin
     let config_path = config_dir.join("config.json");
     println!("Saving state to: {:?}", config_path);
 
-    let mut file = File::create(&config_path).map_err(|e| format!("Failed to create config file: {}", e))?;
+    let mut file =
+        File::create(&config_path).map_err(|e| format!("Failed to create config file: {}", e))?;
     let json = serde_json::to_string_pretty(state)
         .map_err(|e| format!("Failed to serialize state: {}", e))?;
     file.write_all(json.as_bytes())
@@ -198,7 +201,10 @@ pub fn save_state_to_file(app: &AppHandle, state: &AppState) -> Result<(), Strin
     Ok(())
 }
 
-pub fn save_active_downloads_to_file(app: &AppHandle, active_downloads: &ActiveDownloads) -> Result<(), String> {
+pub fn save_active_downloads_to_file(
+    app: &AppHandle,
+    active_downloads: &ActiveDownloads,
+) -> Result<(), String> {
     let config_dir = get_config_dir(app).ok_or("Could not get config directory")?;
     fs::create_dir_all(&config_dir).map_err(|e| format!("Failed to create config dir: {}", e))?;
 

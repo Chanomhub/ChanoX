@@ -1,10 +1,10 @@
+use sevenz_rust::decompress_file;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::Command;
 use zip::read::ZipArchive;
-use sevenz_rust::decompress_file;
 
 #[derive(Debug)]
 pub enum ArchiveError {
@@ -65,7 +65,11 @@ where
     }
 }
 
-fn extract_zip<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+fn extract_zip<F>(
+    file_path: &str,
+    output_dir: &str,
+    progress_callback: F,
+) -> Result<(), ArchiveError>
 where
     F: Fn(f32),
 {
@@ -75,9 +79,9 @@ where
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let file_path = file
-            .enclosed_name()
-            .ok_or_else(|| ArchiveError::InvalidArchive("Invalid file path in archive".to_string()))?;
+        let file_path = file.enclosed_name().ok_or_else(|| {
+            ArchiveError::InvalidArchive("Invalid file path in archive".to_string())
+        })?;
         let output_path = Path::new(output_dir).join(file_path);
 
         if file.name().ends_with('/') {
@@ -97,7 +101,11 @@ where
     Ok(())
 }
 
-fn extract_7z<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+fn extract_7z<F>(
+    file_path: &str,
+    output_dir: &str,
+    progress_callback: F,
+) -> Result<(), ArchiveError>
 where
     F: Fn(f32),
 {
@@ -109,7 +117,11 @@ where
     Ok(())
 }
 
-fn extract_rar<F>(file_path: &str, output_dir: &str, progress_callback: F) -> Result<(), ArchiveError>
+fn extract_rar<F>(
+    file_path: &str,
+    output_dir: &str,
+    progress_callback: F,
+) -> Result<(), ArchiveError>
 where
     F: Fn(f32),
 {
@@ -122,6 +134,8 @@ where
         progress_callback(100.0);
         Ok(())
     } else {
-        Err(ArchiveError::InvalidArchive("RAR extraction failed".to_string()))
+        Err(ArchiveError::InvalidArchive(
+            "RAR extraction failed".to_string(),
+        ))
     }
 }

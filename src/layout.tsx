@@ -5,7 +5,7 @@ import {
     IconDownload,
     IconEdit,
     IconSettings,
-    IconPuzzle, // เพิ่มไอคอนสำหรับ plugins
+    IconPuzzle,
 } from "@tabler/icons-react";
 import clsx from "clsx";
 

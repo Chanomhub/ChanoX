@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { check } from '@tauri-apps/plugin-updater';
+import { ask, message } from '@tauri-apps/plugin-dialog';
 import themes from "../utils/themes";
 import { useSettingsContext } from "../context/SettingsProvider";
+import { IconRefresh } from "@tabler/icons-react";
 
 // Types and constants
 interface CloudinaryConfig {
@@ -34,6 +37,7 @@ export default function Settings() {
     const [isError, setIsError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isTauriAvailable, setIsTauriAvailable] = useState(true);
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
     // Effects
     useEffect(() => {
@@ -181,6 +185,54 @@ export default function Settings() {
         setTheme(theme);
         localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, theme);
     };
+
+    // Check for app updates
+    async function checkForAppUpdates() {
+        if (!isTauriAvailable) {
+            showStatus("Update checking not available in browser mode", true);
+            return;
+        }
+
+        setIsCheckingUpdate(true);
+        try {
+            const update = await check();
+            if (update === null) {
+                await message('Failed to check for updates.\nPlease try again later.', {
+                    title: 'Error',
+                    kind: 'error',
+                    okLabel: 'OK'
+                });
+                return;
+            } else if (update?.available) {
+                const yes = await ask(`Update to ${update.version} is available!\n\nRelease notes: ${update.body}`, {
+                    title: 'Update Available',
+                    kind: 'info',
+                    okLabel: 'Update',
+                    cancelLabel: 'Cancel'
+                });
+                if (yes) {
+                    await update.downloadAndInstall();
+                    // รีสตาร์ทแอพหลังจากอัพเดทเสร็จ
+                    await invoke("graceful_restart");
+                }
+            } else {
+                await message('You are on the latest version. Stay awesome!', {
+                    title: 'No Update Available',
+                    kind: 'info',
+                    okLabel: 'OK'
+                });
+            }
+        } catch (error) {
+            console.error("Update check failed:", error);
+            await message('Failed to check for updates.\nPlease try again later.', {
+                title: 'Error',
+                kind: 'error',
+                okLabel: 'OK'
+            });
+        } finally {
+            setIsCheckingUpdate(false);
+        }
+    }
 
     // Action handlers
     const testConnection = async () => {
@@ -350,6 +402,23 @@ export default function Settings() {
         </>
     );
 
+    const renderApplicationUpdate = () => (
+        <>
+            <div className="divider">Application Update</div>
+            <div>
+                <label className="block text-sm font-medium">Check for Updates</label>
+                <button
+                    className={`btn btn-outline ${!isTauriAvailable ? 'btn-disabled' : ''} flex items-center gap-2`}
+                    onClick={checkForAppUpdates}
+                    disabled={isCheckingUpdate}
+                >
+                    <IconRefresh className="w-5 h-5" />
+                    {isCheckingUpdate ? "Checking..." : "Check for Updates"}
+                </button>
+            </div>
+        </>
+    );
+
     const renderDownloadDirectory = () => (
         <>
             <div className="divider">Download Directory</div>
@@ -428,6 +497,7 @@ export default function Settings() {
                         </div>
 
                         {renderCloudinaryFields()}
+                        {renderApplicationUpdate()}
                         {renderDownloadDirectory()}
                         {renderActionButtons()}
                     </div>

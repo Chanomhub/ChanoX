@@ -3,31 +3,31 @@
     windows_subsystem = "windows"
 )]
 
+mod archiver;
 mod cloudinary;
 mod state;
-mod archiver;
 
 use crate::state::{
-    AppState, CloudinaryConfig, save_state_to_file, DownloadedGameInfo, save_active_downloads_to_file,
-    load_active_downloads_from_file, cleanup_active_downloads, LaunchConfig, ArticleResponse,
+    AppState, ArticleResponse, CloudinaryConfig, DownloadedGameInfo, LaunchConfig,
+    cleanup_active_downloads, load_active_downloads_from_file, save_active_downloads_to_file,
+    save_state_to_file,
 };
-use tauri_plugin_shell::ShellExt;
-use tauri::{Manager, State, Emitter, AppHandle};
-use tauri_plugin_notification::NotificationExt;
-use tauri_plugin_dialog::DialogExt;
-use std::collections::HashMap;
-use std::sync::{Mutex, RwLock};
-use std::fs::{self, File};
-use std::path::{Path, PathBuf};
+use ico::IconDir;
+use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
-use tokio_util::sync::CancellationToken;
+use std::sync::{Mutex, RwLock};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
-use image::DynamicImage;
-use ico::IconDir;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {
@@ -51,7 +51,7 @@ pub struct DownloadInfo {
     extracted: bool,
     extracted_path: Option<String>,
     extraction_status: Option<String>, // เพิ่ม: idle, extracting, completed, failed
-    extraction_progress: Option<f32>, // เพิ่ม: ความคืบหน้า (0.0 - 100.0)
+    extraction_progress: Option<f32>,  // เพิ่ม: ความคืบหน้า (0.0 - 100.0)
 }
 
 #[tauri::command]
@@ -78,7 +78,8 @@ async fn unarchive_file(
             "status": "extracting",
             "progress": 0.0
         }),
-    ).map_err(|e| format!("Failed to emit extraction progress: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to emit extraction progress: {}", e))?;
 
     // อัปเดตสถานะใน active downloads
     {
@@ -94,21 +95,18 @@ async fn unarchive_file(
     }
 
     // เรียกฟังก์ชันแตกไฟล์
-    let result = archiver::unarchive_file_with_progress(
-        &file_path,
-        &output_dir,
-        |progress| {
-            // ส่งความคืบหน้า (ถ้า library รองรับ)
-            app.emit(
-                "extraction-progress",
-                &serde_json::json!({
-                    "downloadId": download_id,
-                    "status": "extracting",
-                    "progress": progress
-                }),
-            ).ok();
-        },
-    );
+    let result = archiver::unarchive_file_with_progress(&file_path, &output_dir, |progress| {
+        // ส่งความคืบหน้า (ถ้า library รองรับ)
+        app.emit(
+            "extraction-progress",
+            &serde_json::json!({
+                "downloadId": download_id,
+                "status": "extracting",
+                "progress": progress
+            }),
+        )
+        .ok();
+    });
 
     match result {
         Ok(_) => {
@@ -120,7 +118,8 @@ async fn unarchive_file(
                     "status": "completed",
                     "progress": 100.0
                 }),
-            ).map_err(|e| format!("Failed to emit extraction complete: {}", e))?;
+            )
+            .map_err(|e| format!("Failed to emit extraction complete: {}", e))?;
 
             {
                 let active_downloads = app.state::<RwLock<ActiveDownloads>>();
@@ -155,7 +154,8 @@ async fn unarchive_file(
                     "progress": 0.0,
                     "error": e.to_string()
                 }),
-            ).map_err(|e| format!("Failed to emit extraction error: {}", e))?;
+            )
+            .map_err(|e| format!("Failed to emit extraction error: {}", e))?;
 
             {
                 let active_downloads = app.state::<RwLock<ActiveDownloads>>();
@@ -181,7 +181,10 @@ async fn check_path_exists(path: String) -> Result<bool, String> {
 
 #[tauri::command]
 async fn select_game_executable(app: AppHandle, game_id: String) -> Result<String, String> {
-    let dialog = app.dialog().file().add_filter("Executable Files", &["exe", "py", "sh"]);
+    let dialog = app
+        .dialog()
+        .file()
+        .add_filter("Executable Files", &["exe", "py", "sh"]);
     let result = dialog.blocking_pick_file();
 
     match result {
@@ -201,18 +204,21 @@ async fn launch_game(
     launch_config: Option<LaunchConfig>, // เปลี่ยนเป็น Option
     state: State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
 
     // ดึง launch_config จาก AppState หากมี
-    let stored_launch_config = app_state.games
-        .as_ref()
-        .and_then(|games| {
-            games.iter().find(|g| g.id == game_id)
-                .and_then(|game| game.launch_config.clone())
-        });
+    let stored_launch_config = app_state.games.as_ref().and_then(|games| {
+        games
+            .iter()
+            .find(|g| g.id == game_id)
+            .and_then(|game| game.launch_config.clone())
+    });
 
     // ใช้ launch_config จากพารามิเตอร์ถ้าไม่มีใน AppState
-    let launch_config = stored_launch_config.or(launch_config)
+    let launch_config = stored_launch_config
+        .or(launch_config)
         .ok_or("No launch configuration provided or found")?;
 
     let executable_path = &launch_config.executable_path;
@@ -281,10 +287,7 @@ async fn launch_game(
 }
 
 #[tauri::command]
-async fn extract_icon(
-    app: AppHandle,
-    executable_path: String,
-) -> Result<String, String> {
+async fn extract_icon(app: AppHandle, executable_path: String) -> Result<String, String> {
     let path_obj = Path::new(&executable_path);
     if !path_obj.exists() {
         return Err("Executable does not exist".to_string());
@@ -303,8 +306,8 @@ async fn extract_icon(
     #[cfg(target_os = "windows")]
     {
         if executable_path.to_lowercase().ends_with(".exe") {
-            let file = File::open(&executable_path)
-                .map_err(|e| format!("Failed to open file: {}", e))?;
+            let file =
+                File::open(&executable_path).map_err(|e| format!("Failed to open file: {}", e))?;
             let icon_dir_result = IconDir::read(file);
             let icon_image = match icon_dir_result {
                 Ok(icon_dir) => {
@@ -327,7 +330,10 @@ async fn extract_icon(
                     if default_icon.exists() {
                         fs::copy(&default_icon, &icon_path)
                             .map_err(|e| format!("Failed to copy default icon: {}", e))?;
-                        return Ok(icon_path.to_str().ok_or("Failed to convert path to string")?.to_string());
+                        return Ok(icon_path
+                            .to_str()
+                            .ok_or("Failed to convert path to string")?
+                            .to_string());
                     } else {
                         return Err("Default icon not found and icon extraction failed".to_string());
                     }
@@ -335,12 +341,9 @@ async fn extract_icon(
             };
 
             let rgba = icon_image.rgba_data();
-            let img = image::RgbaImage::from_raw(
-                icon_image.width(),
-                icon_image.height(),
-                rgba.to_vec(),
-            )
-            .ok_or("Failed to create RGBA image")?;
+            let img =
+                image::RgbaImage::from_raw(icon_image.width(), icon_image.height(), rgba.to_vec())
+                    .ok_or("Failed to create RGBA image")?;
             let dynamic_img = DynamicImage::ImageRgba8(img);
 
             dynamic_img
@@ -353,20 +356,23 @@ async fn extract_icon(
 
     #[cfg(not(target_os = "windows"))]
     {
-      let default_icon = app
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?
-        .join("default_icon.png");
-      if default_icon.exists() {
-        fs::copy(&default_icon, &icon_path)
-          .map_err(|e| format!("Failed to copy default icon: {}", e))?;
-      } else {
-        return Err("Default icon not found".to_string());
-      }
+        let default_icon = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("Failed to get resource dir: {}", e))?
+            .join("default_icon.png");
+        if default_icon.exists() {
+            fs::copy(&default_icon, &icon_path)
+                .map_err(|e| format!("Failed to copy default icon: {}", e))?;
+        } else {
+            return Err("Default icon not found".to_string());
+        }
     }
 
-    Ok(icon_path.to_str().ok_or("Failed to convert path to string")?.to_string())
+    Ok(icon_path
+        .to_str()
+        .ok_or("Failed to convert path to string")?
+        .to_string())
 }
 
 #[tauri::command]
@@ -377,7 +383,9 @@ async fn save_launch_config(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     if app_state.games.is_none() {
         app_state.games = Some(Vec::new());
         println!("Initialized empty games list");
@@ -429,7 +437,9 @@ fn set_token(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     app_state.token = Some(token);
     save_state_to_file(&app, &app_state)?;
     Ok(())
@@ -437,7 +447,9 @@ fn set_token(
 
 #[tauri::command]
 fn get_token(state: State<'_, Mutex<AppState>>) -> Result<Option<String>, String> {
-    let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     Ok(app_state.token.clone())
 }
 
@@ -449,7 +461,9 @@ fn set_cloudinary_config(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     let config = CloudinaryConfig {
         cloud_name,
         api_key,
@@ -464,7 +478,9 @@ fn set_cloudinary_config(
 fn get_cloudinary_config(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Option<CloudinaryConfig>, String> {
-    let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     Ok(app_state.cloudinary.clone())
 }
 
@@ -475,7 +491,9 @@ fn save_all_settings(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     app_state.token = Some(token);
     app_state.cloudinary = Some(CloudinaryConfig {
         cloud_name: cloudinary_config.cloud_name,
@@ -493,7 +511,9 @@ async fn upload_to_cloudinary(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<String, String> {
     let cloudinary_config = {
-        let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+        let app_state = state
+            .lock()
+            .map_err(|e| format!("Failed to lock state: {}", e))?;
         app_state
             .cloudinary
             .as_ref()
@@ -563,7 +583,9 @@ fn set_download_dir(
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     app_state.download_dir = Some(dir.clone());
     save_state_to_file(&app, &app_state)?;
     println!("Download directory set to: {}", dir);
@@ -583,14 +605,20 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        let app_dir = app.path()
+        let app_dir = app
+            .path()
             .app_data_dir()
             .map_err(|e| format!("Failed to get app directory: {}", e))?;
 
         let paths_to_check = vec![
-            app_dir.join("binaries").join("Release").join("WebView2-x86_64-pc-windows-msvc.exe"),
+            app_dir
+                .join("binaries")
+                .join("Release")
+                .join("WebView2-x86_64-pc-windows-msvc.exe"),
             app_dir.join("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
-            std::path::PathBuf::from("binaries").join("Release").join("WebView2-x86_64-pc-windows-msvc.exe"),
+            std::path::PathBuf::from("binaries")
+                .join("Release")
+                .join("WebView2-x86_64-pc-windows-msvc.exe"),
             std::path::PathBuf::from("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
         ];
 
@@ -657,7 +685,10 @@ async fn webview2_response(
             .unwrap_or("Unknown file")
             .to_string();
 
-        println!("Registering new download from start notification: id={}, filename={}", download_id, filename);
+        println!(
+            "Registering new download from start notification: id={}, filename={}",
+            download_id, filename
+        );
 
         let download_info = DownloadInfo {
             id: download_id.to_string(),
@@ -672,10 +703,12 @@ async fn webview2_response(
             extracted: false,
             extracted_path: None,
             extraction_status: Some("idle".to_string()), // Default to "idle"
-            extraction_progress: Some(0.0),             // Default to 0.0
+            extraction_progress: Some(0.0),              // Default to 0.0
         };
 
-        downloads.downloads.insert(download_id.to_string(), download_info);
+        downloads
+            .downloads
+            .insert(download_id.to_string(), download_info);
 
         let _ = app.emit(
             "download-progress",
@@ -759,7 +792,10 @@ async fn webview2_response(
                     if progress as f32 > download.progress || download_started {
                         download.progress = progress as f32;
                         download.status = "downloading".to_string();
-                        println!("Download progress: id={}, progress={}", download_id, progress);
+                        println!(
+                            "Download progress: id={}, progress={}",
+                            download_id, progress
+                        );
                         let _ = app.emit(
                             "download-progress",
                             &serde_json::json!({
@@ -786,13 +822,19 @@ async fn webview2_response(
         }
     } else {
         println!("No download found for id: {}", download_id);
-        if download_id.len() > 0 && (status == "success" || status == "error" || status == "progress") {
-            let filename = response.get("filename")
+        if download_id.len() > 0
+            && (status == "success" || status == "error" || status == "progress")
+        {
+            let filename = response
+                .get("filename")
                 .and_then(|f| f.as_str())
                 .unwrap_or("Unknown file");
 
             let progress = if status == "progress" {
-                response.get("progress").and_then(|p| p.as_f64()).unwrap_or(0.0) as f32
+                response
+                    .get("progress")
+                    .and_then(|p| p.as_f64())
+                    .unwrap_or(0.0) as f32
             } else {
                 0.0
             };
@@ -809,14 +851,20 @@ async fn webview2_response(
                         } else {
                             "downloading".to_string()
                         }
-                    },
+                    }
                     "progress" => "downloading".to_string(),
                     "error" => "failed".to_string(),
                     _ => "unknown".to_string(),
                 },
-                path: response.get("path").and_then(|p| p.as_str()).map(|s| s.to_string()),
+                path: response
+                    .get("path")
+                    .and_then(|p| p.as_str())
+                    .map(|s| s.to_string()),
                 error: if status == "error" {
-                    response.get("message").and_then(|m| m.as_str()).map(|s| s.to_string())
+                    response
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .map(|s| s.to_string())
                 } else {
                     None
                 },
@@ -825,10 +873,12 @@ async fn webview2_response(
                 extracted: false,
                 extracted_path: None,
                 extraction_status: Some("idle".to_string()), // Default to "idle"
-                extraction_progress: Some(0.0),             // Default to 0.0
+                extraction_progress: Some(0.0),              // Default to 0.0
             };
 
-            downloads.downloads.insert(download_id.to_string(), download_info);
+            downloads
+                .downloads
+                .insert(download_id.to_string(), download_info);
             println!("Registered new download with id: {}", download_id);
 
             match status {
@@ -840,7 +890,7 @@ async fn webview2_response(
                             "progress": progress
                         }),
                     );
-                },
+                }
                 "success" => {
                     if let Some(path) = response.get("path").and_then(|p| p.as_str()) {
                         let _ = app.emit(
@@ -852,7 +902,7 @@ async fn webview2_response(
                             }),
                         );
                     }
-                },
+                }
                 _ => {}
             }
         }
@@ -957,7 +1007,8 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
         app.emit(
             "cancel-download",
             &serde_json::json!({ "download_id": download_id }),
-        ).map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to emit cancel-download event: {}", e))?;
 
         show_download_notification(
             app.clone(),
@@ -1009,8 +1060,16 @@ fn register_manual_download(
             provider: None,
             downloaded_at: Some(chrono::Utc::now().to_rfc3339()),
             extracted,
-            extracted_path: if extracted { Some(extracted_path) } else { None },
-            extraction_status: Some(if extracted { "completed".to_string() } else { "idle".to_string() }), // Reflect extraction status
+            extracted_path: if extracted {
+                Some(extracted_path)
+            } else {
+                None
+            },
+            extraction_status: Some(if extracted {
+                "completed".to_string()
+            } else {
+                "idle".to_string()
+            }), // Reflect extraction status
             extraction_progress: Some(if extracted { 100.0 } else { 0.0 }), // Reflect extraction progress
         },
     );
@@ -1019,14 +1078,15 @@ fn register_manual_download(
     Ok(())
 }
 
-
 #[tauri::command]
 fn save_games(
     games: Vec<DownloadInfo>,
     state: State<'_, Mutex<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let mut app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+    let mut app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
 
     // ดึง games เดิมจาก app_state เพื่อรักษา launch_config และ icon_path
     let existing_games = app_state.games.clone().unwrap_or_default();
@@ -1058,10 +1118,10 @@ fn save_games(
 }
 
 #[tauri::command]
-fn get_saved_games(
-    state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<DownloadedGameInfo>, String> {
-    let app_state = state.lock().map_err(|e| format!("Failed to lock state: {}", e))?;
+fn get_saved_games(state: State<'_, Mutex<AppState>>) -> Result<Vec<DownloadedGameInfo>, String> {
+    let app_state = state
+        .lock()
+        .map_err(|e| format!("Failed to lock state: {}", e))?;
     let games = app_state.games.clone().unwrap_or_default();
     Ok(games) // ส่งคืน DownloadedGameInfo ซึ่งมี launch_config และ icon_path
 }
@@ -1109,7 +1169,7 @@ async fn start_webview2_download(
                 extracted: false,
                 extracted_path: None,
                 extraction_status: Some("idle".to_string()), // Default to "idle"
-                extraction_progress: Some(0.0),             // Default to 0.0
+                extraction_progress: Some(0.0),              // Default to 0.0
             },
         );
         downloads.tokens.insert(download_id.clone(), token.clone());
@@ -1142,9 +1202,9 @@ async fn start_webview2_download(
     if !binary_path.exists() {
         println!("Binary not found at: {:?}", binary_path);
 
-        let paths_to_check = vec![
-            std::path::PathBuf::from("WebView2-x86_64-pc-windows-msvc.exe"),
-        ];
+        let paths_to_check = vec![std::path::PathBuf::from(
+            "WebView2-x86_64-pc-windows-msvc.exe",
+        )];
 
         let mut found = false;
         for path in paths_to_check {
@@ -1157,7 +1217,9 @@ async fn start_webview2_download(
         }
 
         if !found {
-            return Err(format!("WebView2 binary not found in any expected location"));
+            return Err(format!(
+                "WebView2 binary not found in any expected location"
+            ));
         }
     }
 
@@ -1182,7 +1244,9 @@ async fn start_webview2_download(
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
                         println!("Parsed WebView2 response: {:?}", json);
                         let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                        if let Err(e) = webview2_response(json, app_clone.clone(), active_downloads).await {
+                        if let Err(e) =
+                            webview2_response(json, app_clone.clone(), active_downloads).await
+                        {
                             println!("Error processing WebView2 response: {}", e);
                         }
                     }
@@ -1193,7 +1257,9 @@ async fn start_webview2_download(
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
                         println!("Parsed WebView2 stderr response: {:?}", json);
                         let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                        if let Err(e) = webview2_response(json, app_clone.clone(), active_downloads).await {
+                        if let Err(e) =
+                            webview2_response(json, app_clone.clone(), active_downloads).await
+                        {
                             println!("Error processing WebView2 stderr response: {}", e);
                         }
                     }
@@ -1206,7 +1272,8 @@ async fn start_webview2_download(
                         "message": format!("WebView2 process error: {}", e),
                         "downloadId": download_id_clone
                     });
-                    let _ = webview2_response(error_json, app_clone.clone(), active_downloads).await;
+                    let _ =
+                        webview2_response(error_json, app_clone.clone(), active_downloads).await;
                 }
                 CommandEvent::Terminated(code) => {
                     println!("WebView2 process terminated with code: {:?}", code);
@@ -1215,8 +1282,11 @@ async fn start_webview2_download(
                             let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
                             match active_downloads.read() {
                                 Ok(downloads) => {
-                                    if let Some(download) = downloads.downloads.get(&download_id_clone) {
-                                        download.status != "completed" && download.status != "failed"
+                                    if let Some(download) =
+                                        downloads.downloads.get(&download_id_clone)
+                                    {
+                                        download.status != "completed"
+                                            && download.status != "failed"
                                     } else {
                                         false
                                     }
@@ -1236,7 +1306,10 @@ async fn start_webview2_download(
                             });
 
                             let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                            if let Err(e) = webview2_response(error_json, app_clone.clone(), active_downloads).await {
+                            if let Err(e) =
+                                webview2_response(error_json, app_clone.clone(), active_downloads)
+                                    .await
+                            {
                                 println!("Error reporting WebView2 termination: {}", e);
                             }
                         }
@@ -1263,6 +1336,7 @@ async fn start_webview2_download(
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
@@ -1293,11 +1367,17 @@ fn main() {
 
             let mut initial_downloads = match state::load_active_downloads_from_file(&app_handle) {
                 Ok(loaded_downloads) => {
-                    println!("Loaded active downloads successfully: {:?}", loaded_downloads);
+                    println!(
+                        "Loaded active downloads successfully: {:?}",
+                        loaded_downloads
+                    );
                     loaded_downloads
                 }
                 Err(e) => {
-                    println!("Failed to load active downloads: {}. Using default downloads.", e);
+                    println!(
+                        "Failed to load active downloads: {}. Using default downloads.",
+                        e
+                    );
                     ActiveDownloads::default()
                 }
             };
@@ -1361,7 +1441,9 @@ fn main() {
                     println!("Failed to lock state on close");
                 }
                 if let Ok(active_downloads) = app.state::<RwLock<ActiveDownloads>>().read() {
-                    if let Err(e) = state::save_active_downloads_to_file(&app_handle, &active_downloads) {
+                    if let Err(e) =
+                        state::save_active_downloads_to_file(&app_handle, &active_downloads)
+                    {
                         println!("Failed to save active downloads on close: {}", e);
                     } else {
                         println!("Active downloads saved successfully on close");
