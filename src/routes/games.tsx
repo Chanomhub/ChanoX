@@ -8,15 +8,16 @@ interface DownloadedFile {
     status: string;
     extracted: boolean;
     extractedPath?: string;
+    downloadedAt: string; // ISO string or timestamp
 }
 
-// สร้าง interface ที่สอดคล้องกับ DownloadedGameInfo ใน Rust
 interface SavedGameInfo {
     id: string;
     filename: string;
     path: string;
     extracted: boolean;
     extracted_path?: string;
+    downloadedAt: string; // ISO string or timestamp
 }
 
 const Games: React.FC = () => {
@@ -25,55 +26,60 @@ const Games: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const itemsPerPage = 9; // 3x3 grid
+    const itemsPerPage = 9;
 
-    // Fetch downloaded files
+    // Utility function to extract filename from path
+    const getFilename = (path: string): string => {
+        return path.split(/[\\/]/).pop() || path; // Extract the last part after \ or /
+    };
+
     useEffect(() => {
         const fetchDownloadedFiles = async () => {
             try {
                 setLoading(true);
 
-                // First, get active downloads from the download manager
                 const activeDownloads: DownloadedFile[] = await invoke('get_active_downloads');
                 const completedFiles = activeDownloads.filter((file) => file.status === 'completed');
 
-                // Then, get saved games from config
                 const savedGames: SavedGameInfo[] = await invoke('get_saved_games');
 
-                // Process completed files from active downloads
                 const processedActiveFiles = await Promise.all(
                     completedFiles.map(async (file) => {
                         if (file.path) {
                             const extracted = await checkIfExtracted(file.path);
                             return {
                                 ...file,
+                                filename: getFilename(file.filename),
                                 extracted,
-                                extractedPath: extracted ? `${file.path}_extracted` : undefined
+                                extractedPath: extracted ? `${file.path}_extracted` : undefined,
                             };
                         }
-                        return { ...file, extracted: false };
+                        return { ...file, filename: getFilename(file.filename), extracted: false };
                     })
                 );
 
-                // Convert saved games to match DownloadedFile format
                 const processedSavedGames = savedGames.map(game => ({
                     id: game.id,
-                    filename: game.filename,
+                    filename: getFilename(game.filename),
                     path: game.path,
                     status: 'completed',
                     extracted: game.extracted,
-                    extractedPath: game.extracted_path
+                    extractedPath: game.extracted_path,
+                    downloadedAt: game.downloadedAt,
                 }));
 
-                // Merge active downloads with saved games, removing duplicates by ID
                 const allFilesMap = new Map();
-
                 [...processedActiveFiles, ...processedSavedGames].forEach(file => {
                     allFilesMap.set(file.id, file);
                 });
 
                 const mergedFiles = Array.from(allFilesMap.values());
-                mergedFiles.sort((a, b) => a.filename.localeCompare(b.filename));
+                // Sort by downloadedAt in descending order (most recent first)
+                mergedFiles.sort((a, b) => {
+                    const dateA = new Date(a.downloadedAt || '1970-01-01T00:00:00Z');
+                    const dateB = new Date(b.downloadedAt || '1970-01-01T00:00:00Z');
+                    return dateB.getTime() - dateA.getTime();
+                });
 
                 setFiles(mergedFiles);
             } catch (err) {
@@ -83,17 +89,14 @@ const Games: React.FC = () => {
                 setLoading(false);
             }
         };
-
         fetchDownloadedFiles();
     }, [refreshKey]);
 
-    // Save to config when files change
     useEffect(() => {
         const saveGamesToConfig = async () => {
             if (files.length === 0) return;
 
             try {
-                // Convert to SavedGameInfo format
                 const gamesToSave = files.map(file => ({
                     id: file.id,
                     filename: file.filename,
@@ -106,7 +109,6 @@ const Games: React.FC = () => {
                 console.log('Games saved to config successfully');
             } catch (err) {
                 console.error('Error saving games to config:', err);
-                // Don't show error to user as this is just a background save
             }
         };
 
@@ -170,7 +172,6 @@ const Games: React.FC = () => {
             if (!exists) {
                 throw new Error('Path does not exist');
             }
-            // ตรวจสอบว่าเป็นโฟลเดอร์หรือไฟล์
             const isDir = await invoke('is_directory', { path });
             if (isDir) {
                 await invoke('open_directory', { path });
@@ -213,7 +214,6 @@ const Games: React.FC = () => {
         );
     };
 
-    // Pagination logic
     const totalPages = Math.ceil(files.length / itemsPerPage);
     const paginatedFiles = files.slice(
         (currentPage - 1) * itemsPerPage,
@@ -230,7 +230,6 @@ const Games: React.FC = () => {
 
     return (
         <div className="flex min-h-screen">
-            {/* Sidebar */}
             <div className="w-64 bg-base-200 p-4">
                 <h2 className="text-xl font-bold mb-4">Registered Games</h2>
                 <button
@@ -252,7 +251,6 @@ const Games: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Content */}
             <div className="flex-1 p-4">
                 <h1 className="text-3xl font-bold mb-6">Downloaded Games</h1>
 
@@ -324,7 +322,6 @@ const Games: React.FC = () => {
                             ))}
                         </div>
 
-                        {/* Pagination */}
                         {totalPages > 1 && (
                             <div className="flex justify-center mt-6">
                                 <div className="join">

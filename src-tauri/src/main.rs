@@ -39,6 +39,7 @@ pub struct DownloadInfo {
     path: Option<String>,
     error: Option<String>,
     provider: Option<String>,
+    downloaded_at: Option<String>, // Store as ISO 8601 string
 }
 
 #[tauri::command]
@@ -337,6 +338,7 @@ async fn webview2_response(
             path: None,
             error: None,
             provider: Some("webview2".to_string()),
+            downloaded_at: None, // Add this
         };
 
         downloads.downloads.insert(download_id.to_string(), download_info);
@@ -358,6 +360,7 @@ async fn webview2_response(
                     download.status = "completed".to_string();
                     download.progress = 100.0;
                     download.path = Some(path.to_string());
+                    download.downloaded_at = Some(chrono::Utc::now().to_rfc3339());
 
                     if let Some(filename) = response.get("filename").and_then(|f| f.as_str()) {
                         download.filename = filename.to_string();
@@ -484,6 +487,7 @@ async fn webview2_response(
                     None
                 },
                 provider: Some("webview2".to_string()),
+                downloaded_at: None, // Add this
             };
 
             downloads.downloads.insert(download_id.to_string(), download_info);
@@ -664,6 +668,7 @@ fn register_manual_download(
             path: Some(path),
             error: None,
             provider: None,
+            downloaded_at: Some(chrono::Utc::now().to_rfc3339()), // Add this
         },
     );
 
@@ -686,6 +691,7 @@ fn save_games(
         path: game.path.unwrap_or_default(),
         extracted: false,
         extracted_path: None,
+        downloaded_at: game.downloaded_at,
     }).collect();
     app_state.games = Some(converted_games);
     save_state_to_file(&app, &app_state)?;
@@ -708,6 +714,7 @@ fn get_saved_games(
         path: Some(game.path),
         error: None,
         provider: None,
+        downloaded_at: game.downloaded_at,
     }).collect();
     Ok(converted_games)
 }
@@ -751,6 +758,7 @@ async fn start_webview2_download(
                 path: None,
                 error: None,
                 provider: Some("webview2".to_string()),
+                downloaded_at: None, // Add this
             },
         );
         downloads.tokens.insert(download_id.clone(), token.clone());

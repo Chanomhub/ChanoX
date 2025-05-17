@@ -7,15 +7,16 @@ import Layout from "./layout";
 import ErrorPage from "./error-page";
 
 import Home from "./routes/home";
-import CreateArticle from "./routes/CreateArticle"; // New import for article detail page
+import CreateArticle from "./routes/CreateArticle";
 import Settings from "./routes/settings";
+import Profile from "./routes/profile"; // New import for profile page
 import { TauriProvider } from "./context/TauriProvider";
 import "./index.css";
 import { SettingsProvider } from "./context/SettingsProvider";
 import ArticlePage from "./routes/article.tsx";
 import Downloads from "./routes/downloads.tsx";
 import PluginManager from "./routes/plugin.tsx";
-import Games from "./routes/games.tsx"; // New import for games page
+import Games from "./routes/games.tsx";
 
 const router = createBrowserRouter([
     {
@@ -28,11 +29,11 @@ const router = createBrowserRouter([
                 element: <Home />,
             },
             {
-                path: "/article/:slug", // New route for article detail
+                path: "/article/:slug",
                 element: <ArticlePage />,
             },
             {
-              path: "/games",
+                path: "/games",
                 element: <Games />,
             },
             {
@@ -47,10 +48,13 @@ const router = createBrowserRouter([
                 path: "/createarticle",
                 element: <CreateArticle />,
             },
-
             {
                 path: "/settings",
                 element: <Settings />,
+            },
+            {
+                path: "/profile/:username", // New route for profile
+                element: <Profile />,
             },
         ],
     },

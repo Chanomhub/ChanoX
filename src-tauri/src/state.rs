@@ -27,6 +27,7 @@ pub struct DownloadedGameInfo {
     pub path: String,
     pub extracted: bool,
     pub extracted_path: Option<String>,
+    pub downloaded_at: Option<String>, // Store as ISO 8601 string
 }
 
 impl Default for AppState {
