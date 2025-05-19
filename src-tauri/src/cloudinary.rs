@@ -1,8 +1,7 @@
 use crate::state::CloudinaryConfig;
 use chrono;
 use hex;
-use image::ImageFormat;
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};

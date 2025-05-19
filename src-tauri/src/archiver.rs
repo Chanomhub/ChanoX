@@ -1,7 +1,7 @@
 use sevenz_rust::decompress_file;
 use std::fmt;
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self};
 use std::path::Path;
 use std::process::Command;
 use zip::read::ZipArchive;

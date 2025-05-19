@@ -9,16 +9,15 @@ mod state;
 
 use crate::state::{
     AppState, ArticleResponse, CloudinaryConfig, DownloadedGameInfo, LaunchConfig,
-    cleanup_active_downloads, load_active_downloads_from_file, save_active_downloads_to_file,
+    cleanup_active_downloads, save_active_downloads_to_file,
     save_state_to_file,
 };
 use ico::IconDir;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::process::Command as StdCommand;
 use std::sync::{Mutex, RwLock};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -180,7 +179,7 @@ async fn check_path_exists(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn select_game_executable(app: AppHandle, game_id: String) -> Result<String, String> {
+async fn select_game_executable(app: AppHandle, _game_id: String) -> Result<String, String> {
     let dialog = app
         .dialog()
         .file()
@@ -199,7 +198,7 @@ async fn select_game_executable(app: AppHandle, game_id: String) -> Result<Strin
 
 #[tauri::command]
 async fn launch_game(
-    app: AppHandle,
+    _app: AppHandle,
     game_id: String,
     launch_config: Option<LaunchConfig>, // เปลี่ยนเป็น Option
     state: State<'_, Mutex<AppState>>,
@@ -524,7 +523,7 @@ async fn upload_to_cloudinary(
 }
 
 #[tauri::command]
-fn open_directory(path: String, app: AppHandle) -> Result<(), String> {
+fn open_directory(path: String, _app: AppHandle) -> Result<(), String> {
     let path_obj = std::path::Path::new(&path);
     if !path_obj.exists() {
         return Err("Directory does not exist".to_string());
@@ -595,6 +594,7 @@ fn set_download_dir(
 fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        // ตรวจสอบว่า WebView2 runtime ติดตั้งอยู่หรือไม่
         let output = StdCommand::new("reg")
             .args(&["query", "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients"])
             .output()
@@ -605,21 +605,14 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        let app_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| format!("Failed to get app directory: {}", e))?;
-
+        // กำหนดพาธที่คาดว่า bootstrapper จะอยู่
         let paths_to_check = vec![
-            app_dir
+            app.path()
+                .resource_dir()
+                .map_err(|e| format!("Failed to get resource dir: {}", e))?
                 .join("binaries")
                 .join("Release")
                 .join("WebView2-x86_64-pc-windows-msvc.exe"),
-            app_dir.join("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
-            std::path::PathBuf::from("binaries")
-                .join("Release")
-                .join("WebView2-x86_64-pc-windows-msvc.exe"),
-            std::path::PathBuf::from("binaries/Release/WebView2-x86_64-pc-windows-msvc.exe"),
         ];
 
         for path in paths_to_check {
@@ -638,9 +631,13 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             }
         }
 
-        return Err("WebView2 bootstrapper not found in any expected location".to_string());
+        return Err("WebView2 bootstrapper not found in expected location".to_string());
     }
-    Ok(())
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -976,10 +973,6 @@ async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(
             download.error = Some("Download cancelled by user".to_string());
         }
 
-        let app_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| format!("Failed to get app dir: {}", e))?;
         let binary_path = app
             .path()
             .resource_dir()
@@ -1139,6 +1132,21 @@ async fn start_webview2_download(
         download_id, url, filename
     );
 
+    // ตรวจสอบ WebView2 runtime ก่อน
+    #[cfg(target_os = "windows")]
+    {
+        if let Err(e) = ensure_webview2_runtime(&app) {
+            // แจ้งเตือนผู้ใช้หาก WebView2 runtime หรือ bootstrapper ไม่พบ
+            app.notification()
+                .builder()
+                .title("WebView2 Required")
+                .body("Please install Microsoft WebView2 Runtime to use this feature.")
+                .show()
+                .map_err(|e| format!("Failed to show notification: {}", e))?;
+            return Err(format!("WebView2 runtime not available: {}", e));
+        }
+    }
+
     let save_folder = get_download_dir(app.clone())?;
     println!("Save folder: {}", save_folder);
 
@@ -1187,10 +1195,6 @@ async fn start_webview2_download(
     let message_str = message.to_string();
     println!("Sending message to WebView2: {}", message_str);
 
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app dir: {}", e))?;
     let mut binary_path = app
         .path()
         .resource_dir()
@@ -1345,10 +1349,7 @@ fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
-            #[cfg(target_os = "windows")]
-            {
-                ensure_webview2_runtime(&app_handle).expect("Failed to ensure WebView2 runtime");
-            }
+
 
             let initial_state = match state::load_state_from_file(&app_handle) {
                 Ok(loaded_state) => {
