@@ -8,8 +8,6 @@ interface ArticleFormProps {
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => void;
     handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles') => Promise<void>;
-    publishNote: string;
-    setPublishNote: (note: string) => void;
     handleSubmit: () => Promise<void>;
     isLoading: boolean;
 }
@@ -18,8 +16,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                      formData,
                                                      handleChange,
                                                      handleFileSelect,
-                                                     publishNote,
-                                                     setPublishNote,
                                                      handleSubmit,
                                                      isLoading,
                                                  }) => {
@@ -73,7 +69,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 required
                             />
                         </div>
-
                         <div className="flex flex-col">
                             <label htmlFor="version" className="mb-2 font-semibold">
                                 เวอร์ชัน (ถ้าต้องการ)
@@ -135,21 +130,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                             />
                         </div>
                         <div className="flex flex-col">
-                            <label htmlFor="status" className="mb-2 font-semibold">
-                                สถานะ
-                            </label>
-                            <select
-                                id="status"
-                                name="status"
-                                value={formData.status}
-                                onChange={handleChange}
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="DRAFT">ฉบับร่าง</option>
-                                <option value="PUBLISHED">เผยแพร่</option>
-                            </select>
-                        </div>
-                        <div className="flex flex-col">
                             <label htmlFor="engine" className="mb-2 font-semibold">
                                 Engine (ถ้าไม่ทราบให้ปล่อยว่าง)
                             </label>
@@ -168,24 +148,8 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 <option value="TyranoBuilder">TyranoBuilder</option>
                                 <option value="WOLFRPG">Wolf RPG</option>
                                 <option value="KIRIKIRI">Kirikiri</option>
-
                             </select>
                         </div>
-                        {formData.status === 'PUBLISHED' && (
-                            <div className="flex flex-col">
-                                <label htmlFor="publishNote" className="mb-2 font-semibold">
-                                    หมายเหตุสำหรับการเผยแพร่
-                                </label>
-                                <textarea
-                                    id="publishNote"
-                                    name="publishNote"
-                                    value={publishNote}
-                                    onChange={(e) => setPublishNote(e.target.value)}
-                                    placeholder="ใส่หมายเหตุ (ถ้ามี)"
-                                    className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                                />
-                            </div>
-                        )}
                         {/* Image Selectors */}
                         <div className="space-y-4">
                             <ImageSelector

@@ -18,7 +18,7 @@ const CreateArticle: React.FC = () => {
         tagList: '',
         categoryList: '',
         platformList: '',
-        status: 'DRAFT',
+        status: 'DRAFT', // ตั้งเป็น DRAFT เสมอ
         engine: '',
         mainImage: '',
         images: '',
@@ -32,8 +32,7 @@ const CreateArticle: React.FC = () => {
     });
     const [downloadLinks, setDownloadLinks] = useState<ArticleDownload[]>([]);
     const [articleId, setArticleId] = useState<number | null>(null);
-    const [publishNote, setPublishNote] = useState<string>('');
-    const [response, setResponse] = useState<{ article: { id: number; slug?: string }; publishRequest?: string } | null>(null);
+    const [response, setResponse] = useState<{ article: { id: number; slug?: string } } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -106,40 +105,6 @@ const CreateArticle: React.FC = () => {
         }
     };
 
-    const handlePublishRequest = async (slug: string) => {
-        try {
-            const tokenResult = await invoke<string | null>('get_token');
-            if (!tokenResult) {
-                throw new Error('No authentication token found. Please login first.');
-            }
-            const result = await fetch(
-                `https://api.chanomhub.online/api/articles/${slug}/publish-request`,
-                {
-                    method: 'POST',
-                    headers: {
-                        accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${tokenResult}`,
-                    },
-                    body: JSON.stringify({ note: publishNote || 'Request to publish article' }),
-                }
-            );
-
-            if (!result.ok) {
-                const errorText = await result.text();
-                throw new Error(
-                    `Publish request failed with status ${result.status}: ${errorText || result.statusText}`
-                );
-            }
-            return await result.json();
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Publish request failed';
-            setError(errorMessage);
-            console.error('Publish request error:', err);
-            throw err;
-        }
-    };
-
     const handleSubmitArticle = async () => {
         setIsLoading(true);
         setError(null);
@@ -192,7 +157,7 @@ const CreateArticle: React.FC = () => {
                         .split(',')
                         .map((p) => p.trim())
                         .filter(Boolean),
-                    status: formData.status,
+                    status: 'DRAFT', // บังคับเป็น DRAFT
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
@@ -218,14 +183,6 @@ const CreateArticle: React.FC = () => {
             const data = await result.json();
             setResponse(data);
             setArticleId(data.article.id);
-
-            if (formData.status === 'PUBLISHED' && data.article.slug) {
-                await handlePublishRequest(data.article.slug);
-                setResponse({
-                    ...data,
-                    publishRequest: 'Publish request submitted successfully',
-                });
-            }
             setStep(2);
         } catch (err) {
             const errorMessage =
@@ -317,7 +274,6 @@ const CreateArticle: React.FC = () => {
         });
         setDownloadLinks([]);
         setArticleId(null);
-        setPublishNote('');
         setResponse(null);
         setError(null);
     };
@@ -332,8 +288,6 @@ const CreateArticle: React.FC = () => {
                     formData={formData}
                     handleChange={handleArticleFormChange}
                     handleFileSelect={handleFileSelect}
-                    publishNote={publishNote}
-                    setPublishNote={setPublishNote}
                     handleSubmit={handleSubmitArticle}
                     isLoading={isLoading}
                 />

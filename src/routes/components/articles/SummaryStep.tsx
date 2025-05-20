@@ -1,5 +1,5 @@
-
-import React from 'react';
+import React, { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface SummaryStepProps {
     response: any;
@@ -7,7 +7,90 @@ interface SummaryStepProps {
     onReset: () => void;
 }
 
+interface PublishRequestResponse {
+    id: number;
+    slug: string;
+    title: string;
+    description: string;
+    body: string;
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+    status: string;
+    engine: string;
+    mainImage: string;
+    images: string[];
+    tagList: string[];
+    categoryList: string[];
+    platformList: string[];
+    author?: {
+        username: string;
+        bio: string;
+        image: string;
+        backgroundImage: string | null;
+        following: boolean;
+        socialMediaLinks: { platform: string; url: string }[];
+    };
+    favorited: boolean;
+    favoritesCount: number;
+    backgroundImage: string | null;
+    coverImage: string | null;
+}
+
 const SummaryStep: React.FC<SummaryStepProps> = ({ response, downloadLinks, onReset }) => {
+    const [requestNote, setRequestNote] = useState<string>('');
+    const [publishStatus, setPublishStatus] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handlePublishRequest = async () => {
+        if (!response?.article?.slug) {
+            setError('ไม่มี slug ของบทความ');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        setPublishStatus(null);
+
+        try {
+            const tokenResult = await invoke<string | null>('get_token');
+            if (!tokenResult) {
+                throw new Error('ไม่พบโทเค็นการยืนยันตัวตน กรุณาล็อกอินก่อน');
+            }
+
+            const result = await fetch(
+                `https://api.chanomhub.online/api/articles/${response.article.slug}/publish-request`,
+                {
+                    method: 'POST',
+                    headers: {
+                        accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${tokenResult}`,
+                    },
+                    body: JSON.stringify({ requestNote: requestNote || 'คำขอเผยแพร่บทความ' }),
+                }
+            );
+
+            if (!result.ok) {
+                const errorText = await result.text();
+                throw new Error(`คำขอเผยแพร่ล้มเหลวด้วยสถานะ ${result.status}: ${errorText || result.statusText}`);
+            }
+
+            const data: PublishRequestResponse = await result.json();
+            if (!data.status) {
+                throw new Error('ไม่พบสถานะบทความในคำตอบจาก API');
+            }
+            setPublishStatus(`ส่งคำขอเผยแพร่สำเร็จ: สถานะ ${data.status}`);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'คำขอเผยแพร่ล้มเหลว';
+            setError(errorMessage);
+            console.error('ข้อผิดพลาดคำขอเผยแพร่:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-center mb-6">สรุปผลการสร้างบทความ</h2>
@@ -35,13 +118,7 @@ const SummaryStep: React.FC<SummaryStepProps> = ({ response, downloadLinks, onRe
                             </p>
                             <p>
                                 <span className="font-semibold">สถานะ:</span>
-                                <span
-                                    className={`ml-2 badge ${
-                                        response.article.status === 'PUBLISHED' ? 'badge-success' : 'badge-warning'
-                                    }`}
-                                >
-                  {response.article.status === 'PUBLISHED' ? 'เผยแพร่' : 'ฉบับร่าง'}
-                </span>
+                                <span className="ml-2 badge badge-warning">ฉบับร่าง</span>
                             </p>
                             <p>
                                 <span className="font-semibold">Engine:</span>{' '}
@@ -89,10 +166,51 @@ const SummaryStep: React.FC<SummaryStepProps> = ({ response, downloadLinks, onRe
                                     </ul>
                                 </p>
                             )}
-                            {response.publishRequest && (
-                                <p className="text-green-600 font-semibold">
-                                    คำขอเผยแพร่: {response.publishRequest}
-                                </p>
+                            {publishStatus && (
+                                <p className="text-green-600 font-semibold">คำขอเผยแพร่: {publishStatus}</p>
+                            )}
+                            {error && (
+                                <div className="alert alert-error shadow-lg">
+                                    <div className="flex items-center">
+                                        <svg
+                                            className="w-6 h-6 mr-2"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        <span>{error}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {!publishStatus && (
+                                <div className="space-y-4">
+                                    <div className="flex flex-col">
+                                        <label htmlFor="requestNote" className="mb-2 font-semibold">
+                                            หมายเหตุสำหรับการเผยแพร่
+                                        </label>
+                                        <textarea
+                                            id="requestNote"
+                                            name="requestNote"
+                                            value={requestNote}
+                                            onChange={(e) => setRequestNote(e.target.value)}
+                                            placeholder="ใส่หมายเหตุ (ถ้ามี)"
+                                            className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handlePublishRequest}
+                                        className={`btn btn-primary ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? 'กำลังส่งคำขอ...' : 'ส่งคำขอเผยแพร่'}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -104,12 +222,24 @@ const SummaryStep: React.FC<SummaryStepProps> = ({ response, downloadLinks, onRe
                             <ul className="space-y-2">
                                 {downloadLinks.map((link, index) => (
                                     <li key={index} className="flex items-center justify-between">
-                    <span>
-                      {link.name}: <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{link.url}</a>
-                    </span>
-                                        <span className={`badge ${link.isActive ? 'badge-success' : 'badge-error'}`}>
-                      {link.isActive ? 'แอคทีฟ' : 'ไม่แอคทีฟ'}
-                    </span>
+                                        <span>
+                                            {link.name}:{' '}
+                                            <a
+                                                href={link.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-500 hover:underline"
+                                            >
+                                                {link.url}
+                                            </a>
+                                        </span>
+                                        <span
+                                            className={`badge ${
+                                                link.isActive ? 'badge-success' : 'badge-error'
+                                            }`}
+                                        >
+                                            {link.isActive ? 'แอคทีฟ' : 'ไม่แอคทีฟ'}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
