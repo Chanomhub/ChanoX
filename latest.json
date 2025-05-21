@@ -1,8 +1,8 @@
 
 {
-  "version": "v0.8.0",
-  "notes": "Release notes for version 0.8.0",
-  "pub_date": "2025-05-17T22:31:18Z",
+  "version": "v0.9.0",
+  "notes": "Release notes for version 0.9.0",
+  "pub_date": "2025-05-21T16:08:21Z",
   "platforms": {
     "darwin-x86_64": {
       "signature": "Content of app.tar.gz.sig",
@@ -18,7 +18,7 @@
     },
     "windows-x86_64": {
       "signature": "Content of app-setup.nsis.sig or app.msi.sig, depending on the chosen format",
-      "url": "-"
+      "url": "2025-05-21T16:08:21Z"
     }
   }
 }
