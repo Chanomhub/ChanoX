@@ -5,6 +5,8 @@ import DOMPurify from "dompurify";
 import { ArticleDownloads } from "../../download/ArticleDownloads.tsx";
 import { TranslationFiles } from "../../download/TranslationFiles.tsx";
 import { ArticleDetail, ArticleDownload, TranslationFile } from "./types/types.ts";
+import ImageComponent from "../../../component/ImageComponent.tsx";
+
 
 export const ArticleDetailModal: React.FC<{
     articleDetail: ArticleDetail | null;
@@ -92,10 +94,13 @@ export const ArticleDetailModal: React.FC<{
                         {articleDetail.mainImage && (
                             <div className="h-64 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/70 to-transparent z-10"></div>
-                                <img
+                                <ImageComponent
                                     src={articleDetail.mainImage}
                                     alt={articleDetail.title}
                                     className="w-full h-full object-cover"
+                                    width={1280} // Adjust based on your needs
+                                    height={256} // Matches the h-64 (256px) container
+                                    quality={80} // Higher quality for main image
                                 />
                                 <button className="absolute top-4 right-4 btn btn-circle btn-sm" onClick={onClose}>
                                     <X size={18} />
@@ -150,10 +155,13 @@ export const ArticleDetailModal: React.FC<{
                                     <div className="flex items-center gap-3">
                                         {articleDetail.author && (
                                             <div className="flex items-center gap-2">
-                                                <img
+                                                <ImageComponent
                                                     src={articleDetail.author.image}
                                                     alt={articleDetail.author.username}
                                                     className="w-10 h-10 rounded-full"
+                                                    width={40} // Matches w-10 (40px)
+                                                    height={40} // Matches h-10 (40px)
+                                                    quality={60}
                                                 />
                                                 <span>{articleDetail.author.username}</span>
                                             </div>
@@ -182,11 +190,14 @@ export const ArticleDetailModal: React.FC<{
                         {activeTab === 'gallery' && (
                             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {articleDetail.images.map((image, index) => (
-                                    <img
+                                    <ImageComponent
                                         key={index}
                                         src={image}
                                         alt={`ภาพประกอบ ${index + 1}`}
                                         className="w-full h-48 object-cover rounded-lg"
+                                        width={400} // Approximate width for grid column
+                                        height={192} // Matches h-48 (192px)
+                                        quality={60}
                                     />
                                 ))}
                             </div>

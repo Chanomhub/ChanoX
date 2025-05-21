@@ -1,16 +1,32 @@
-import { generateImgproxyUrl } from '../utils/imgproxy';
+import { generateCdnUrl } from '../utils/imgproxy';
+import React from 'react';
 
 interface ImageComponentProps {
     src: string;
     alt: string;
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
     quality?: number;
-    className?: string; // Add className as an optional prop
+    className?: string;
+    onLoad?: () => void;
+    onError?: () => void;
+    loading?: 'lazy' | 'eager';
+    style?: React.CSSProperties;
 }
 
-const ImageComponent: React.FC<ImageComponentProps> = ({ src, alt, width, height, quality = 60, className }) => {
-    const imgProxyUrl = generateImgproxyUrl(src, {
+const ImageComponent: React.FC<ImageComponentProps> = ({
+                                                           src,
+                                                           alt,
+                                                           width,
+                                                           height,
+                                                           quality = 60,
+                                                           className,
+                                                           onLoad,
+                                                           onError,
+                                                           loading = 'lazy',
+                                                           style
+                                                       }) => {
+    const imgProxyUrl = generateCdnUrl(src, {
         width,
         height,
         quality
@@ -20,7 +36,13 @@ const ImageComponent: React.FC<ImageComponentProps> = ({ src, alt, width, height
         <img
             src={imgProxyUrl}
             alt={alt}
-            className={className} // Pass the className prop to the img element
+            width={width}
+            height={height}
+            className={className}
+            onLoad={onLoad}
+            onError={onError}
+            loading={loading}
+            style={style}
         />
     );
 };

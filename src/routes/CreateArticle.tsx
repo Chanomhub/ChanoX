@@ -18,12 +18,12 @@ const CreateArticle: React.FC = () => {
         tagList: '',
         categoryList: '',
         platformList: '',
-        status: 'DRAFT', // ตั้งเป็น DRAFT เสมอ
+        status: 'DRAFT',
         engine: '',
         mainImage: '',
         images: '',
         additionalImageFiles: [],
-        version: '',
+        ver: '',
     });
     const [downloadData, setDownloadData] = useState<DownloadData>({
         downloadName: '',
@@ -135,11 +135,6 @@ const CreateArticle: React.FC = () => {
                 imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
-            const versionNumber = formData.version ? parseInt(formData.version, 10) : 0;
-            if (isNaN(versionNumber)) {
-                throw new Error('Version must be a valid number');
-            }
-
             const articlePayload: ArticlePayload = {
                 article: {
                     title: formData.title,
@@ -157,11 +152,11 @@ const CreateArticle: React.FC = () => {
                         .split(',')
                         .map((p) => p.trim())
                         .filter(Boolean),
-                    status: 'DRAFT', // บังคับเป็น DRAFT
+                    status: 'DRAFT',
                     mainImage: mainImageUrl || '',
                     images: imageUrls,
                     engine: formData.engine || '',
-                    version: versionNumber,
+                    ver: formData.ver || '',
                 },
             };
 
@@ -265,7 +260,7 @@ const CreateArticle: React.FC = () => {
             mainImage: '',
             images: '',
             additionalImageFiles: [],
-            version: '',
+            ver: '',
         });
         setDownloadData({
             downloadName: '',

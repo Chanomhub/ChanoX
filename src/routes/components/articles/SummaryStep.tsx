@@ -14,6 +14,7 @@ interface PublishRequestResponse {
     description: string;
     body: string;
     version: number;
+    ver: string;
     createdAt: string;
     updatedAt: string;
     status: string;
