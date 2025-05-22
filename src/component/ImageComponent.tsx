@@ -19,7 +19,7 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
                                                            alt,
                                                            width,
                                                            height,
-                                                           quality = 60,
+                                                           quality = 80,
                                                            className,
                                                            onLoad,
                                                            onError,
