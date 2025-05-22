@@ -55,10 +55,18 @@ jobs:
     steps:
       - name: Debug Inputs
         run: |
-          echo "apisec-username: ${{ secrets.apisec_username }}"
-          echo "apisec-password: [HIDDEN]"
-          echo "apisec-project: VAmPI"
-          echo "sarif-result-file: apisec-results.sarif"
+         echo "apisec-username: ${{ secrets.apisec_username }}"
+         echo "apisec-password: [HIDDEN]"
+         echo "apisec-project: VAmPI"
+         echo "sarif-result-file: apisec-results.sarif"
+         if [[ -z "${{ secrets.apisec_username }}" ]]; then
+          echo "Error: Missing apisec-username!"
+          exit 1
+         fi
+          if [[ -z "${{ secrets.apisec_password }}" ]]; then
+           echo "Error: Missing apisec-password!"
+          exit 1
+         fi
 
       - name: APIsec scan
         uses: apisec-inc/apisec-run-scan@025432089674a28ba8fb55f8ab06c10215e772ea
