@@ -1,6 +1,8 @@
 import React from 'react';
 import { ArticleFormData } from './types';
 import ImageSelector from './ImageSelector';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 
 interface ArticleFormProps {
     formData: ArticleFormData;
@@ -19,179 +21,265 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                      handleSubmit,
                                                      isLoading,
                                                  }) => {
+    // ตั้งค่า TipTap Editor สำหรับฟิลด์ body
+    const editor = useEditor({
+        extensions: [
+            StarterKit, // ใช้ StarterKit เพื่อรวมฟีเจอร์พื้นฐาน
+        ],
+        content: formData.body, // โหลดเนื้อหาเริ่มต้นจาก formData.body
+        onUpdate: ({ editor }) => {
+            // อัปเดตค่า body ใน formData เมื่อมีการเปลี่ยนแปลงใน editor
+            handleChange({
+                target: { name: 'body', value: editor.getHTML() },
+            } as React.ChangeEvent<HTMLTextAreaElement>);
+        },
+    });
+
     return (
-        <div className="max-w-4xl mx-auto shadow-lg rounded-xl p-8 space-y-8">
-            <h2 className="text-3xl font-bold text-center">กรอกข้อมูลบทความ</h2>
-            <form>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Main Info */}
-                    <div className="space-y-6">
-                        <div className="flex flex-col">
-                            <label htmlFor="title" className="mb-2 font-semibold">
-                                หัวข้อ
-                            </label>
-                            <input
-                                type="text"
-                                id="title"
-                                name="title"
-                                value={formData.title}
-                                onChange={handleChange}
-                                placeholder="กรอกหัวข้อบทความ"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
+        <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+                <h2 className="card-title text-2xl font-bold justify-center mb-6">
+                    ✨ กรอกข้อมูลบทความ
+                </h2>
+
+                <form className="space-y-6">
+                    {/* Main Content Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column - Main Info */}
+                        <div className="space-y-4">
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">📝 หัวข้อ</span>
+                                    <span className="label-text-alt text-error">*จำเป็น</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="title"
+                                    value={formData.title}
+                                    onChange={handleChange}
+                                    placeholder="กรอกหัวข้อบทความ"
+                                    className="input input-bordered w-full focus:input-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">📄 คำอธิบาย</span>
+                                    <span className="label-text-alt text-error">*จำเป็น</span>
+                                </label>
+                                <textarea
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    placeholder="คำอธิบายบทความ"
+                                    className="textarea textarea-bordered h-20 resize-none focus:textarea-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">📝 เนื้อหา</span>
+                                    <span className="label-text-alt text-error">*จำเป็น</span>
+                                </label>
+                                <div className="border border-base-300 rounded-lg overflow-hidden">
+                                    {/* Rich Text Editor Toolbar */}
+                                    <div className="bg-base-200 p-2 border-b border-base-300">
+                                        <div className="btn-group">
+                                            <button
+                                                type="button"
+                                                onClick={() => editor?.chain().focus().toggleBold().run()}
+                                                className={`btn btn-sm ${
+                                                    editor?.isActive('bold') ? 'btn-primary' : 'btn-ghost'
+                                                }`}
+                                                title="ตัวหนา"
+                                            >
+                                                <strong>B</strong>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                                className={`btn btn-sm ${
+                                                    editor?.isActive('italic') ? 'btn-primary' : 'btn-ghost'
+                                                }`}
+                                                title="ตัวเอียง"
+                                            >
+                                                <em>I</em>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                                                className={`btn btn-sm ${
+                                                    editor?.isActive('heading', { level: 2 }) ? 'btn-primary' : 'btn-ghost'
+                                                }`}
+                                                title="หัวข้อ"
+                                            >
+                                                H2
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                                                className={`btn btn-sm ${
+                                                    editor?.isActive('bulletList') ? 'btn-primary' : 'btn-ghost'
+                                                }`}
+                                                title="ลิสต์"
+                                            >
+                                                •
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Editor Content */}
+                                    <EditorContent
+                                        editor={editor}
+                                        className="p-4 min-h-[200px] prose max-w-none focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">🔢 เวอร์ชัน</span>
+                                    <span className="label-text-alt">ไม่จำเป็น</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="version"
+                                    value={formData.version}
+                                    onChange={handleChange}
+                                    placeholder="ตัวอย่าง: 1.32"
+                                    className="input input-bordered focus:input-primary"
+                                />
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="description" className="mb-2 font-semibold">
-                                คำอธิบาย
-                            </label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                value={formData.description}
-                                onChange={handleChange}
-                                placeholder="คำอธิบายบทความ"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                                required
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="body" className="mb-2 font-semibold">
-                                เนื้อหา
-                            </label>
-                            <textarea
-                                id="body"
-                                name="body"
-                                value={formData.body}
-                                onChange={handleChange}
-                                placeholder="เนื้อหาบทความ"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-                                required
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="version" className="mb-2 font-semibold">
-                                เวอร์ชัน (ถ้าต้องการ)
-                            </label>
-                            <input
-                                type="text"
-                                id="version"
-                                name="version"
-                                value={formData.version}
-                                onChange={handleChange}
-                                placeholder="ตัวอย่าง: 132"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+
+                        {/* Right Column - Additional Info */}
+                        <div className="space-y-4">
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">🏷️ แท็ก</span>
+                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="tagList"
+                                    value={formData.tagList}
+                                    onChange={handleChange}
+                                    placeholder="React, JavaScript, TypeScript"
+                                    className="input input-bordered focus:input-primary"
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">📂 หมวดหมู่</span>
+                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="categoryList"
+                                    value={formData.categoryList}
+                                    onChange={handleChange}
+                                    placeholder="เทคโนโลยี, บันเทิง, เกม"
+                                    className="input input-bordered focus:input-primary"
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">💻 แพลตฟอร์ม</span>
+                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="platformList"
+                                    value={formData.platformList}
+                                    onChange={handleChange}
+                                    placeholder="Windows, Mac, Linux, Android"
+                                    className="input input-bordered focus:input-primary"
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-semibold">⚙️ Engine</span>
+                                    <span className="label-text-alt">ไม่จำเป็น</span>
+                                </label>
+                                <select
+                                    name="engine"
+                                    value={formData.engine || ''}
+                                    onChange={handleChange}
+                                    className="select select-bordered focus:select-primary"
+                                >
+                                    <option value="">ไม่ระบุ</option>
+                                    <option value="RENPY">Ren'Py</option>
+                                    <option value="RPGM">RPG Maker</option>
+                                    <option value="UNITY">Unity</option>
+                                    <option value="UNREAL">Unreal Engine</option>
+                                    <option value="TyranoBuilder">TyranoBuilder</option>
+                                    <option value="WOLFRPG">Wolf RPG</option>
+                                    <option value="KIRIKIRI">Kirikiri</option>
+                                </select>
+                            </div>
+
+                            {/* Image Upload Section */}
+                            <div className="divider">🖼️ รูปภาพ</div>
+
+                            <div className="space-y-4 bg-base-50 p-4 rounded-lg">
+                                <ImageSelector
+                                    label="รูปภาพหลัก"
+                                    imageUrl={formData.mainImage}
+                                    imagePath={formData.mainImageFile}
+                                    name="mainImage"
+                                    selectType="mainImageFile"
+                                    handleChange={handleChange}
+                                    handleFileSelect={handleFileSelect}
+                                    placeholder="ระบุ URL หรือเลือกไฟล์"
+                                    isDisabled={!!formData.mainImageFile}
+                                    required={true}
+                                />
+
+                                <ImageSelector
+                                    label="รูปภาพเพิ่มเติม"
+                                    imageUrl={formData.images}
+                                    imagePaths={formData.additionalImageFiles}
+                                    name="images"
+                                    selectType="additionalImageFiles"
+                                    handleChange={handleChange}
+                                    handleFileSelect={handleFileSelect}
+                                    placeholder="ระบุ URLs (คั่นด้วยคอมม่า)"
+                                    isDisabled={formData.additionalImageFiles.length > 0}
+                                    isMultiple={true}
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Additional Info */}
-                    <div className="space-y-6">
-                        <div className="flex flex-col">
-                            <label htmlFor="tagList" className="mb-2 font-semibold">
-                                แท็ก (คั่นด้วยคอมม่า)
-                            </label>
-                            <input
-                                type="text"
-                                id="tagList"
-                                name="tagList"
-                                value={formData.tagList}
-                                onChange={handleChange}
-                                placeholder="ตัวอย่าง: React, JavaScript"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="categoryList" className="mb-2 font-semibold">
-                                หมวดหมู่ (คั่นด้วยคอมม่า)
-                            </label>
-                            <input
-                                type="text"
-                                id="categoryList"
-                                name="categoryList"
-                                value={formData.categoryList}
-                                onChange={handleChange}
-                                placeholder="ตัวอย่าง: เทคโนโลยี, บันเทิง"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="platformList" className="mb-2 font-semibold">
-                                แพลตฟอร์ม (คั่นด้วยคอมม่า)
-                            </label>
-                            <input
-                                type="text"
-                                id="platformList"
-                                name="platformList"
-                                value={formData.platformList}
-                                onChange={handleChange}
-                                placeholder="ตัวอย่าง: Web, Mobile"
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label htmlFor="engine" className="mb-2 font-semibold">
-                                Engine (ถ้าไม่ทราบให้ปล่อยว่าง)
-                            </label>
-                            <select
-                                id="engine"
-                                name="engine"
-                                value={formData.engine || ''}
-                                onChange={handleChange}
-                                className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">ไม่ระบุ</option>
-                                <option value="RENPY">Ren'Py</option>
-                                <option value="RPGM">RPG Maker</option>
-                                <option value="UNITY">Unity</option>
-                                <option value="UNREAL">Unreal Engine</option>
-                                <option value="TyranoBuilder">TyranoBuilder</option>
-                                <option value="WOLFRPG">Wolf RPG</option>
-                                <option value="KIRIKIRI">Kirikiri</option>
-                            </select>
-                        </div>
-                        {/* Image Selectors */}
-                        <div className="space-y-4">
-                            <ImageSelector
-                                label="รูปภาพหลัก (จำเป็น)"
-                                imageUrl={formData.mainImage}
-                                imagePath={formData.mainImageFile}
-                                name="mainImage"
-                                selectType="mainImageFile"
-                                handleChange={handleChange}
-                                handleFileSelect={handleFileSelect}
-                                placeholder="ระบุ URL หรือเลือกไฟล์"
-                                isDisabled={!!formData.mainImageFile}
-                                required={true}
-                            />
-                            <ImageSelector
-                                label="รูปภาพเพิ่มเติม (ไม่จำเป็น)"
-                                imageUrl={formData.images}
-                                imagePaths={formData.additionalImageFiles}
-                                name="images"
-                                selectType="additionalImageFiles"
-                                handleChange={handleChange}
-                                handleFileSelect={handleFileSelect}
-                                placeholder="ระบุ URLs (คั่นด้วยคอมม่า, ถ้ามี)"
-                                isDisabled={formData.additionalImageFiles.length > 0}
-                                isMultiple={true}
-                            />
-                        </div>
+                    {/* Submit Button */}
+                    <div className="card-actions justify-center pt-6">
+                        <button
+                            type="button"
+                            onClick={handleSubmit}
+                            className={`btn btn-primary btn-wide btn-lg ${
+                                isLoading ? 'loading' : ''
+                            }`}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <span className="loading loading-spinner loading-sm"></span>
+                                    กำลังส่ง...
+                                </>
+                            ) : (
+                                <>
+                                    ✨ สร้างบทความ
+                                </>
+                            )}
+                        </button>
                     </div>
-                </div>
-                <div className="mt-8 text-center">
-                    <button
-                        type="button"
-                        onClick={handleSubmit}
-                        className={`w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ${
-                            isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? 'กำลังส่ง...' : 'สร้างบทความ'}
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     );
 };
