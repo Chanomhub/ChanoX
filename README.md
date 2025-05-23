@@ -1,4 +1,3 @@
-# ChanomHub Desktop 🎉🎉
 
 ## Overview🆕
 
