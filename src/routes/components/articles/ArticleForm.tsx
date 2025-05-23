@@ -38,195 +38,238 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
     return (
         <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
-                <h2 className="card-title text-2xl font-bold justify-center mb-6">
+                <h2 className="card-title text-2xl font-bold justify-center mb-6 text-base-content">
                     ✨ กรอกข้อมูลบทความ
                 </h2>
 
                 <form className="space-y-6">
                     {/* Main Content Section */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Left Column - Main Info */}
-                        <div className="space-y-4">
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">📝 หัวข้อ</span>
-                                    <span className="label-text-alt text-error">*จำเป็น</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="title"
-                                    value={formData.title}
-                                    onChange={handleChange}
-                                    placeholder="กรอกหัวข้อบทความ"
-                                    className="input input-bordered w-full focus:input-primary"
-                                    required
-                                />
-                            </div>
+                    <div className="space-y-8">
+                        {/* Basic Information Section */}
+                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
+                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
+                                <span className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-content text-sm">📋</span>
+                                ข้อมูลพื้นฐาน
+                            </h3>
 
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">📄 คำอธิบาย</span>
-                                    <span className="label-text-alt text-error">*จำเป็น</span>
-                                </label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    placeholder="คำอธิบายบทความ"
-                                    className="textarea textarea-bordered h-20 resize-none focus:textarea-primary"
-                                    required
-                                />
-                            </div>
+                            <div className="space-y-6">
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-primary">📝</span> หัวข้อบทความ
+                                        </span>
+                                        <span className="badge badge-error badge-sm">จำเป็น</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="title"
+                                        value={formData.title}
+                                        onChange={handleChange}
+                                        placeholder="กรอกหัวข้อที่น่าสนใจ..."
+                                        className="input input-bordered input-primary w-full"
+                                        required
+                                    />
+                                </div>
 
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">📝 เนื้อหา</span>
-                                    <span className="label-text-alt text-error">*จำเป็น</span>
-                                </label>
-                                <div className="border border-base-300 rounded-lg overflow-hidden">
-                                    {/* Rich Text Editor Toolbar */}
-                                    <div className="bg-base-200 p-2 border-b border-base-300">
-                                        <div className="btn-group">
-                                            <button
-                                                type="button"
-                                                onClick={() => editor?.chain().focus().toggleBold().run()}
-                                                className={`btn btn-sm ${
-                                                    editor?.isActive('bold') ? 'btn-primary' : 'btn-ghost'
-                                                }`}
-                                                title="ตัวหนา"
-                                            >
-                                                <strong>B</strong>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => editor?.chain().focus().toggleItalic().run()}
-                                                className={`btn btn-sm ${
-                                                    editor?.isActive('italic') ? 'btn-primary' : 'btn-ghost'
-                                                }`}
-                                                title="ตัวเอียง"
-                                            >
-                                                <em>I</em>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                                                className={`btn btn-sm ${
-                                                    editor?.isActive('heading', { level: 2 }) ? 'btn-primary' : 'btn-ghost'
-                                                }`}
-                                                title="หัวข้อ"
-                                            >
-                                                H2
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                                                className={`btn btn-sm ${
-                                                    editor?.isActive('bulletList') ? 'btn-primary' : 'btn-ghost'
-                                                }`}
-                                                title="ลิสต์"
-                                            >
-                                                •
-                                            </button>
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-success">📄</span> คำอธิบายสั้น
+                                        </span>
+                                        <span className="badge badge-error badge-sm">จำเป็น</span>
+                                    </label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        placeholder="เขียนคำอธิบายสั้นๆ ที่ดึงดูดความสนใจ..."
+                                        className="textarea textarea-bordered textarea-primary w-full h-24 resize-none"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-secondary">✍️</span> เนื้อหาบทความ
+                                        </span>
+                                        <span className="badge badge-error badge-sm">จำเป็น</span>
+                                    </label>
+                                    <div className="border-2 border-base-300 rounded-xl overflow-hidden bg-base-100 focus-within:border-primary transition-all duration-200">
+                                        {/* Rich Text Editor Toolbar */}
+                                        <div className="bg-base-200 p-3 border-b border-base-300">
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => editor?.chain().focus().toggleBold().run()}
+                                                    className={`btn btn-sm ${
+                                                        editor?.isActive('bold')
+                                                            ? 'btn-primary'
+                                                            : 'btn-ghost'
+                                                    }`}
+                                                    title="ตัวหนา"
+                                                >
+                                                    <strong>B</strong>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                                    className={`btn btn-sm ${
+                                                        editor?.isActive('italic')
+                                                            ? 'btn-primary'
+                                                            : 'btn-ghost'
+                                                    }`}
+                                                    title="ตัวเอียง"
+                                                >
+                                                    <em>I</em>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                                                    className={`btn btn-sm ${
+                                                        editor?.isActive('heading', { level: 2 })
+                                                            ? 'btn-primary'
+                                                            : 'btn-ghost'
+                                                    }`}
+                                                    title="หัวข้อ"
+                                                >
+                                                    H2
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                                                    className={`btn btn-sm ${
+                                                        editor?.isActive('bulletList')
+                                                            ? 'btn-primary'
+                                                            : 'btn-ghost'
+                                                    }`}
+                                                    title="รายการ"
+                                                >
+                                                    •
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    {/* Editor Content */}
-                                    <EditorContent
-                                        editor={editor}
-                                        className="p-4 min-h-[200px] prose max-w-none focus:outline-none"
+                                        {/* Editor Content */}
+                                        <EditorContent
+                                            editor={editor}
+                                            className="p-4 min-h-[200px] prose max-w-none focus:outline-none text-base-content"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-warning">🔢</span> เวอร์ชัน
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="version"
+                                        value={formData.version}
+                                        onChange={handleChange}
+                                        placeholder="เช่น 1.32, v2.0"
+                                        className="input input-bordered w-full"
                                     />
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">🔢 เวอร์ชัน</span>
-                                    <span className="label-text-alt">ไม่จำเป็น</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="version"
-                                    value={formData.version}
-                                    onChange={handleChange}
-                                    placeholder="ตัวอย่าง: 1.32"
-                                    className="input input-bordered focus:input-primary"
-                                />
+                        {/* Additional Information Section */}
+                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
+                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
+                                <span className="w-8 h-8 bg-success rounded-lg flex items-center justify-center text-success-content text-sm">🏷️</span>
+                                ข้อมูลเพิ่มเติม
+                            </h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-info">🏷️</span> แท็ก
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="tagList"
+                                        value={formData.tagList}
+                                        onChange={handleChange}
+                                        placeholder="React, JavaScript, TypeScript"
+                                        className="input input-bordered input-info w-full"
+                                    />
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-secondary">📂</span> หมวดหมู่
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="categoryList"
+                                        value={formData.categoryList}
+                                        onChange={handleChange}
+                                        placeholder="เทคโนโลยี, บันเทิง, เกม"
+                                        className="input input-bordered input-secondary w-full"
+                                    />
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-accent">💻</span> แพลตฟอร์ม
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="platformList"
+                                        value={formData.platformList}
+                                        onChange={handleChange}
+                                        placeholder="Windows, Mac, Linux, Android"
+                                        className="input input-bordered input-accent w-full"
+                                    />
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="flex items-center justify-between mb-2">
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-error">⚙️</span> Engine
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
+                                    </label>
+                                    <select
+                                        name="engine"
+                                        value={formData.engine || ''}
+                                        onChange={handleChange}
+                                        className="select select-bordered w-full"
+                                    >
+                                        <option value="">ไม่ระบุ</option>
+                                        <option value="RENPY">Ren'Py</option>
+                                        <option value="RPGM">RPG Maker</option>
+                                        <option value="UNITY">Unity</option>
+                                        <option value="UNREAL">Unreal Engine</option>
+                                        <option value="TyranoBuilder">TyranoBuilder</option>
+                                        <option value="WOLFRPG">Wolf RPG</option>
+                                        <option value="KIRIKIRI">Kirikiri</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Right Column - Additional Info */}
-                        <div className="space-y-4">
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">🏷️ แท็ก</span>
-                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="tagList"
-                                    value={formData.tagList}
-                                    onChange={handleChange}
-                                    placeholder="React, JavaScript, TypeScript"
-                                    className="input input-bordered focus:input-primary"
-                                />
-                            </div>
+                        {/* Image Upload Section */}
+                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
+                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
+                                <span className="w-8 h-8 bg-warning rounded-lg flex items-center justify-center text-warning-content text-sm">🖼️</span>
+                                รูปภาพประกอบ
+                            </h3>
 
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">📂 หมวดหมู่</span>
-                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="categoryList"
-                                    value={formData.categoryList}
-                                    onChange={handleChange}
-                                    placeholder="เทคโนโลยี, บันเทิง, เกม"
-                                    className="input input-bordered focus:input-primary"
-                                />
-                            </div>
-
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">💻 แพลตฟอร์ม</span>
-                                    <span className="label-text-alt">คั่นด้วยคอมม่า</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="platformList"
-                                    value={formData.platformList}
-                                    onChange={handleChange}
-                                    placeholder="Windows, Mac, Linux, Android"
-                                    className="input input-bordered focus:input-primary"
-                                />
-                            </div>
-
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-semibold">⚙️ Engine</span>
-                                    <span className="label-text-alt">ไม่จำเป็น</span>
-                                </label>
-                                <select
-                                    name="engine"
-                                    value={formData.engine || ''}
-                                    onChange={handleChange}
-                                    className="select select-bordered focus:select-primary"
-                                >
-                                    <option value="">ไม่ระบุ</option>
-                                    <option value="RENPY">Ren'Py</option>
-                                    <option value="RPGM">RPG Maker</option>
-                                    <option value="UNITY">Unity</option>
-                                    <option value="UNREAL">Unreal Engine</option>
-                                    <option value="TyranoBuilder">TyranoBuilder</option>
-                                    <option value="WOLFRPG">Wolf RPG</option>
-                                    <option value="KIRIKIRI">Kirikiri</option>
-                                </select>
-                            </div>
-
-                            {/* Image Upload Section */}
-                            <div className="divider">🖼️ รูปภาพ</div>
-
-                            <div className="space-y-4 bg-base-50 p-4 rounded-lg">
+                            <div className="space-y-6">
                                 <ImageSelector
                                     label="รูปภาพหลัก"
                                     imageUrl={formData.mainImage}
