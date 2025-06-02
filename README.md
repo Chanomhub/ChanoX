@@ -1,7 +1,4 @@
 
-## Overview🆕
-
-ChanomHub Desktop provides a native application experience for interacting with ChanomHub's APIs directly from your desktop.
 
 ## Features
 
@@ -11,7 +8,7 @@ ChanomHub Desktop provides a native application experience for interacting with 
 - **Seamless integration** - Pre-configured to work with all ChanomHub APIs
 - **Type-safe development** - Strong typing for maintainable and robust code
 
-## Getting Started
+
 
 ### Prerequisites
 
