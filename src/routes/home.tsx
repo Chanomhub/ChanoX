@@ -177,7 +177,11 @@ const Home: React.FC = () => {
     };
 
     const formatDate = (timestamp: number | string) => {
-        return new Date(timestamp).toLocaleDateString();
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, '0'); // Get day and pad with leading zero if needed
+        const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Get month (0-based, so +1) and pad
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
     const clearAllFilters = () => {
