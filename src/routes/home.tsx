@@ -447,9 +447,8 @@ const Home: React.FC = () => {
                 {game.mainImage ? (
                     <ImageComponent
                         src={game.mainImage}
-                        alt={game.title || "Game Image"}
-                        width={300}
-                        height={192}
+                        alt={game.title}
+                        quality={100}
                         className="w-full h-full object-cover rounded-t-lg"
                         loading="lazy"
                     />
