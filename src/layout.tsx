@@ -35,7 +35,7 @@ export default function Layout() {
                     "active:scale-95 active:rotate-0",
                     isActive
                         ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30 scale-105"
-                        : "bg-base-300/50 hover:bg-gradient-to-br hover:from-blue-500/10 hover:to-purple-600/10 text-base-content/70 hover:text-blue-400"
+                        : "bg-gray-700/50 hover:bg-gradient-to-br hover:from-blue-500/10 hover:to-purple-600/10 text-gray-300 hover:text-blue-400"
                 )}
                 to={path}
             >
@@ -49,12 +49,12 @@ export default function Layout() {
 
                 {/* Tooltip */}
                 <div className={clsx(
-                    "absolute left-16 px-3 py-1.5 bg-base-100 text-base-content text-sm rounded-lg shadow-lg",
+                    "absolute left-16 px-3 py-1.5 bg-gray-800 text-white text-sm rounded-lg shadow-lg",
                     "opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200",
-                    "border border-base-300 whitespace-nowrap z-50"
+                    "border border-gray-600 whitespace-nowrap z-50"
                 )}>
                     {label}
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-base-100 border-l border-b border-base-300 rotate-45"></div>
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-800 border-l border-b border-gray-600 rotate-45"></div>
                 </div>
 
                 {/* Active indicator */}
@@ -66,9 +66,9 @@ export default function Layout() {
     };
 
     return (
-        <div className="flex flex-row min-w-screen min-h-screen overflow-hidden bg-base-100">
+        <div className="flex flex-row min-w-screen min-h-screen overflow-hidden bg-gray-900">
             {/* Enhanced Sidebar */}
-            <div className="fixed top-0 left-0 bottom-0 w-16 bg-gradient-to-b from-base-200 to-base-300 flex flex-col gap-4 px-2 py-6 shadow-xl border-r border-base-300/50">
+            <div className="fixed top-0 left-0 bottom-0 w-16 bg-gradient-to-b from-gray-800 to-gray-900 flex flex-col gap-4 px-2 py-6 shadow-xl border-r border-gray-700/50">
                 {/* Logo/Brand area */}
                 <div className="w-12 h-12 mx-auto mb-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
                     <div className="w-6 h-6 bg-white rounded-md"></div>
@@ -83,7 +83,7 @@ export default function Layout() {
 
                 {/* Spacer */}
                 <div className="flex-grow relative">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-base-content/20 to-transparent"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
                 </div>
 
                 {/* Bottom Navigation */}

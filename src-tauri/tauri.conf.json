@@ -12,11 +12,9 @@
   "app": {
     "windows": [
       {
-        "fullscreen": false,
+        "fullscreen": true,
         "resizable": true,
         "title": "ChanomHub",
-        "width": 800,
-        "height": 600,
         "label": "main"
       }
     ],
