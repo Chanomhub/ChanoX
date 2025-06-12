@@ -2,7 +2,7 @@
 @import "tailwindcss/preflight";
 @tailwind utilities;
 @plugin "daisyui" {
-    themes: true;
+    themes: true,
 }
 
 /* Custom animations */
