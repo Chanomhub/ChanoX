@@ -4,6 +4,7 @@ import ImageSelector from './ImageSelector';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 
+
 interface ArticleFormProps {
     formData: ArticleFormData;
     handleChange: (
@@ -24,7 +25,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
     // ตั้งค่า TipTap Editor สำหรับฟิลด์ body
     const editor = useEditor({
         extensions: [
-            StarterKit, // ใช้ StarterKit เพื่อรวมฟีเจอร์พื้นฐาน
+            StarterKit as any,
         ],
         content: formData.body, // โหลดเนื้อหาเริ่มต้นจาก formData.body
         onUpdate: ({ editor }) => {
@@ -101,7 +102,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                             <div className="flex gap-2">
                                                 <button
                                                     type="button"
-                                                    onClick={() => editor?.chain().focus().toggleBold().run()}
+                                                    onClick={() => editor?.chain().focus().toggleMark('bold').run()}
                                                     className={`btn btn-sm ${
                                                         editor?.isActive('bold')
                                                             ? 'btn-primary'
@@ -113,7 +114,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                                    onClick={() => editor?.chain().focus().toggleMark('italic').run()}
                                                     className={`btn btn-sm ${
                                                         editor?.isActive('italic')
                                                             ? 'btn-primary'
@@ -125,7 +126,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                                                    onClick={() => editor?.chain().focus().toggleNode('heading', 'paragraph', { level: 2 }).run()}
                                                     className={`btn btn-sm ${
                                                         editor?.isActive('heading', { level: 2 })
                                                             ? 'btn-primary'
@@ -137,7 +138,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                                                    onClick={() => editor?.chain().focus().toggleNode('bulletList', 'paragraph').run()}
                                                     className={`btn btn-sm ${
                                                         editor?.isActive('bulletList')
                                                             ? 'btn-primary'
