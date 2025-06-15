@@ -9,6 +9,14 @@ import ErrorAlert from './components/articles/ErrorAlert';
 import LoadingIndicator from './components/articles/LoadingIndicator';
 import { ArticleFormData, ArticlePayload, DownloadData, ArticleDownload } from './components/articles/types/types.ts';
 
+interface LocalDownload {
+    id: string;
+    name: string;
+    url: string;
+    isActive: boolean;
+    isNew: boolean;
+}
+
 const CreateArticle: React.FC = () => {
     const [step, setStep] = useState<number>(1);
     const [formData, setFormData] = useState<ArticleFormData>({
@@ -31,6 +39,7 @@ const CreateArticle: React.FC = () => {
         isActive: true,
     });
     const [downloadLinks, setDownloadLinks] = useState<ArticleDownload[]>([]);
+    const [localDownloads, setLocalDownloads] = useState<LocalDownload[]>([]); // New state for local downloads
     const [articleId, setArticleId] = useState<number | null>(null);
     const [response, setResponse] = useState<{ article: { id: number; slug?: string } } | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -54,6 +63,24 @@ const CreateArticle: React.FC = () => {
             ...prev,
             [name]: type === 'checkbox' ? checked : value,
         }));
+    };
+
+    // New handlers for local downloads
+    const handleAddLocalDownload = (download: Omit<LocalDownload, 'id'>) => {
+        const newId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        setLocalDownloads(prev => [...prev, { ...download, id: newId }]);
+    };
+
+    const handleEditLocalDownload = (id: string, download: Omit<LocalDownload, 'id'>) => {
+        setLocalDownloads(prev =>
+            prev.map(item =>
+                item.id === id ? { ...download, id } : item
+            )
+        );
+    };
+
+    const handleDeleteLocalDownload = (id: string) => {
+        setLocalDownloads(prev => prev.filter(item => item.id !== id));
     };
 
     const handleFileSelect = async (name: 'mainImageFile' | 'additionalImageFiles') => {
@@ -189,6 +216,7 @@ const CreateArticle: React.FC = () => {
         }
     };
 
+    // Modified to handle individual download submission (kept for backward compatibility)
     const handleSubmitDownload = async () => {
         if (!articleId) {
             setError('บทความยังไม่ถูกสร้าง โปรดสร้างบทความก่อน');
@@ -246,6 +274,90 @@ const CreateArticle: React.FC = () => {
         }
     };
 
+    // New function to save all local downloads to server
+    const handleSaveAllDownloads = async () => {
+        if (!articleId || localDownloads.length === 0) {
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const tokenResult = await invoke<string | null>('get_token');
+            if (!tokenResult) {
+                throw new Error('No authentication token found. Please login first.');
+            }
+
+            const savedDownloads: ArticleDownload[] = [];
+
+            // Process downloads one by one to handle errors gracefully
+            for (const localDownload of localDownloads) {
+                try {
+                    const result = await fetch('https://api.chanomhub.online/api/downloads', {
+                        method: 'POST',
+                        headers: {
+                            accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${tokenResult}`,
+                        },
+                        body: JSON.stringify({
+                            articleId,
+                            name: localDownload.name,
+                            url: localDownload.url,
+                            isActive: localDownload.isActive,
+                        }),
+                    });
+
+                    if (!result.ok) {
+                        const errorText = await result.text();
+                        throw new Error(`Failed to save "${localDownload.name}": ${errorText}`);
+                    }
+
+                    const data = await result.json();
+                    savedDownloads.push({
+                        id: data.id,
+                        articleId: data.articleId || articleId,
+                        name: data.name,
+                        url: data.url,
+                        isActive: data.isActive,
+                        status: data.status || 'APPROVED',
+                        createdAt: data.createdAt || new Date().toISOString(),
+                        updatedAt: data.updatedAt || new Date().toISOString(),
+                    });
+                } catch (err) {
+                    console.error(`Error saving download "${localDownload.name}":`, err);
+                    // Continue with other downloads even if one fails
+                }
+            }
+
+            // Update state with successfully saved downloads
+            if (savedDownloads.length > 0) {
+                setDownloadLinks(prev => [...prev, ...savedDownloads]);
+                setLocalDownloads([]); // Clear local downloads after successful save
+            }
+
+            if (savedDownloads.length !== localDownloads.length) {
+                setError(`บันทึกได้ ${savedDownloads.length} จาก ${localDownloads.length} รายการ`);
+            }
+
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกลิงค์ดาวน์โหลด';
+            setError(errorMessage);
+            console.error('Error saving downloads:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Modified step navigation to handle saving downloads
+    const handleNextFromDownloadStep = async () => {
+        if (localDownloads.length > 0) {
+            await handleSaveAllDownloads();
+        }
+        setStep(3);
+    };
+
     const resetForm = () => {
         setStep(1);
         setFormData({
@@ -268,6 +380,7 @@ const CreateArticle: React.FC = () => {
             isActive: true,
         });
         setDownloadLinks([]);
+        setLocalDownloads([]);
         setArticleId(null);
         setResponse(null);
         setError(null);
@@ -294,14 +407,22 @@ const CreateArticle: React.FC = () => {
                     handleChange={handleDownloadFormChange}
                     handleSubmit={handleSubmitDownload}
                     downloadLinks={downloadLinks}
+                    localDownloads={localDownloads}
+                    onAddLocal={handleAddLocalDownload}
+                    onEditLocal={handleEditLocalDownload}
+                    onDeleteLocal={handleDeleteLocalDownload}
                     isLoading={isLoading}
                     onPrevious={() => setStep(1)}
-                    onNext={() => setStep(3)}
+                    onNext={handleNextFromDownloadStep}
                 />
             )}
 
             {step === 3 && (
-                <SummaryStep response={response} downloadLinks={downloadLinks} onReset={resetForm} />
+                <SummaryStep
+                    response={response}
+                    downloadLinks={downloadLinks}
+                    onReset={resetForm}
+                />
             )}
 
             <ErrorAlert message={error} />
