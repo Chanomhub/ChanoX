@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArticleDownload, DownloadData } from './types';
+import { ArticleDownload, DownloadData } from './types/types.ts';
 
 interface LocalDownload {
     id: string; // temporary ID for local state

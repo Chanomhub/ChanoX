@@ -181,9 +181,9 @@ const CreateArticle: React.FC = () => {
                         .filter(Boolean),
                     status: 'DRAFT',
                     mainImage: mainImageUrl || '',
-                    images: imageUrls,
+                    images: imageUrls, // ส่งเป็น array แล้ว
                     engine: formData.engine || '',
-                    ver: formData.ver || '',
+                    ver: formData.ver || '', // ใช้ ver แทน version
                 },
             };
 

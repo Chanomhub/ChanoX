@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArticleFormData } from './types';
+import { ArticleFormData } from './types/types.ts';
 import ImageSelector from './ImageSelector';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -161,17 +161,17 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
 
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-warning">🔢</span> เวอร์ชัน
-                                        </span>
+        <span className="text-base-content font-medium flex items-center gap-2">
+            <span className="text-warning">🔢</span> เวอร์ชัน
+        </span>
                                         <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
                                     </label>
                                     <input
                                         type="text"
-                                        name="version"
-                                        value={formData.version}
+                                        name="ver"  // เปลี่ยนจาก "version" เป็น "ver"
+                                        value={formData.ver}
                                         onChange={handleChange}
-                                        placeholder="เช่น 1.32, v2.0"
+                                        placeholder="เช่น v1.0.0, v2.1.5"
                                         className="input input-bordered w-full"
                                     />
                                 </div>
@@ -258,6 +258,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         <option value="TyranoBuilder">TyranoBuilder</option>
                                         <option value="WOLFRPG">Wolf RPG</option>
                                         <option value="KIRIKIRI">Kirikiri</option>
+                                        <option value="Godot">Godot</option>
                                     </select>
                                 </div>
                             </div>

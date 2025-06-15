@@ -1,4 +1,5 @@
 // src/routes/components/articles/types.ts
+
 export interface ArticleFormData {
     title: string;
     description: string;
@@ -7,18 +8,13 @@ export interface ArticleFormData {
     categoryList: string;
     platformList: string;
     status: 'DRAFT' | 'PUBLISHED';
-    engine?: 'RENPY' | 'RPGM' | 'UNITY' | 'UNREAL' | '';
+    engine?: 'RENPY' | 'RPGM' | 'UNITY' | 'UNREAL' | 'Godot' | '';
     mainImage: string;
     images: string;
     mainImageFile?: string;
     additionalImageFiles: string[];
     ver?: string;
-}
-
-export interface DownloadData {
-    downloadName: string;
-    downloadUrl: string;
-    isActive: boolean;
+    version?: string; // รองรับทั้ง `ver` และ `version`
 }
 
 export interface ArticlePayload {
@@ -46,6 +42,12 @@ export interface ArticleDownload {
     status: string;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface DownloadData {
+    downloadName: string;
+    downloadUrl: string;
+    isActive: boolean;
 }
 
 export interface TranslationFile {
@@ -94,11 +96,3 @@ export interface ArticleDetail {
     favorited: boolean;
     favoritesCount: number;
 }
-
-export interface DownloadData {
-    downloadName: string;
-    downloadUrl: string;
-    isActive: boolean;
-}
-
-
