@@ -695,6 +695,7 @@ dependencies = [
  "hex",
  "ico",
  "image",
+ "lazy_static",
  "mega",
  "regex",
  "reqwest",
