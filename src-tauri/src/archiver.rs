@@ -11,6 +11,7 @@ pub enum ArchiveError {
     Io(String),
     UnsupportedFormat(String),
     InvalidArchive(String),
+    FileNotFound(String), // New variant for missing file
 }
 
 impl fmt::Display for ArchiveError {
@@ -19,6 +20,7 @@ impl fmt::Display for ArchiveError {
             ArchiveError::Io(err) => write!(f, "IO error: {}", err),
             ArchiveError::UnsupportedFormat(err) => write!(f, "Unsupported format: {}", err),
             ArchiveError::InvalidArchive(err) => write!(f, "Invalid archive: {}", err),
+            ArchiveError::FileNotFound(err) => write!(f, "File not found: {}", err),
         }
     }
 }
@@ -46,6 +48,15 @@ where
     F: Fn(f32),
 {
     let path = Path::new(file_path);
+
+    // Check if the file exists
+    if !path.exists() {
+        return Err(ArchiveError::FileNotFound(format!(
+            "Archive file does not exist: {}",
+            file_path
+        )));
+    }
+
     let extension = path
         .extension()
         .and_then(|ext| ext.to_str())

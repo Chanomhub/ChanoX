@@ -1111,12 +1111,46 @@ fn save_games(
 }
 
 #[tauri::command]
-fn get_saved_games(state: State<'_, Mutex<AppState>>) -> Result<Vec<DownloadedGameInfo>, String> {
-    let app_state = state
+fn get_saved_games(
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+) -> Result<Vec<DownloadedGameInfo>, String> {
+    let mut app_state = state
         .lock()
         .map_err(|e| format!("Failed to lock state: {}", e))?;
+
+    // Get the current games list or initialize an empty one
     let games = app_state.games.clone().unwrap_or_default();
-    Ok(games) // ส่งคืน DownloadedGameInfo ซึ่งมี launch_config และ icon_path
+
+    // Filter out games whose files no longer exist
+    let valid_games: Vec<DownloadedGameInfo> = games
+        .into_iter()
+        .filter(|game| {
+            let path_exists = game.path.is_empty() || std::path::Path::new(&game.path).exists();
+            let extracted_path_exists = game.extracted_path.as_ref().map_or(true, |path| {
+                path.is_empty() || std::path::Path::new(path).exists()
+            });
+
+            // Keep the game if either its path or extracted path exists
+            let keep = path_exists || extracted_path_exists;
+            if !keep {
+                println!(
+                    "Removing game {} from state as its files no longer exist",
+                    game.id
+                );
+            }
+            keep
+        })
+        .collect();
+
+    // Update the state if any games were removed
+    if valid_games.len() != app_state.games.as_ref().map_or(0, |g| g.len()) {
+        app_state.games = Some(valid_games.clone());
+        save_state_to_file(&app, &app_state)?;
+        println!("Updated state with valid games");
+    }
+
+    Ok(valid_games)
 }
 
 #[tauri::command]
