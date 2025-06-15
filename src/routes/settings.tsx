@@ -7,13 +7,8 @@ import { ask, message } from '@tauri-apps/plugin-dialog';
 import themes from "../utils/themes";
 import { useSettingsContext } from "../context/SettingsProvider";
 import { IconRefresh } from "@tabler/icons-react";
+import { CloudinaryConfig } from "./types/types";
 
-// Types and constants
-interface CloudinaryConfig {
-    cloud_name: string;
-    api_key: string;
-    api_secret: string;
-}
 
 const LOCAL_STORAGE_KEYS = {
     TOKEN: 'chanomhub_token',

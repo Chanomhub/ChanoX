@@ -3,41 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
-
-interface LaunchConfig {
-    executablePath: string;
-    launchMethod: 'direct' | 'python' | 'wine' | 'custom';
-    customCommand?: string;
-}
-
-interface DownloadedFile {
-    id: string;
-    filename: string;
-    path: string;
-    status: string;
-    extracted: boolean;
-    extractedPath?: string;
-    downloadedAt: string;
-    launchConfig?: LaunchConfig;
-    iconPath?: string;
-    url?: string;
-    provider?: string;
-    error?: string | null;
-    progress?: number;
-    extractionStatus?: 'idle' | 'extracting' | 'completed' | 'failed';
-    extractionProgress?: number;
-}
-
-interface SavedGameInfo {
-    id: string;
-    filename: string;
-    path: string;
-    extracted: boolean;
-    extracted_path?: string;
-    downloadedAt: string;
-    launch_config?: LaunchConfig;
-    icon_path?: string;
-}
+import { DownloadedFile, SavedGameInfo, LaunchConfig } from './types/types';
 
 // Reusable Game Card Component
 const GameCard: React.FC<{

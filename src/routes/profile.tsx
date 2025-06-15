@@ -2,20 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import { ProfileData } from "./types/types"; // Adjust the import path as necessary
 
-interface SocialMediaLink {
-    platform: string;
-    url: string;
-}
-
-interface ProfileData {
-    username: string;
-    bio: string;
-    image: string;
-    backgroundImage: string;
-    following: boolean;
-    socialMediaLinks: SocialMediaLink[];
-}
 
 const Profile: React.FC = () => {
     const { username } = useParams<{ username: string }>();

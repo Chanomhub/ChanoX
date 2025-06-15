@@ -1,4 +1,4 @@
-// src/routes/components/articles/types/index.ts
+// src/routes/components/articles/types/types.ts
 export interface ArticleFormData {
     title: string;
     description: string;

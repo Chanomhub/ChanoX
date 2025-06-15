@@ -2,18 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect } from "react";
-
-
-interface DownloadItem {
-    id: string;
-    filename: string;
-    url: string;
-    progress: number;
-    status: "pending" | "downloading" | "completed" | "failed" | "cancelled";
-    path?: string;
-    error?: string;
-    provider?: string;
-}
+import { DownloadItem } from "./types/types.ts";
 
 export default function DownloadManager() {
     const [downloads, setDownloads] = useState<DownloadItem[]>([]);

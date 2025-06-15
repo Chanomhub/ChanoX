@@ -3,21 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { FiPlus, FiTrash2, FiDownload, FiRefreshCw, FiCheck, FiX, FiInfo, FiPlay } from 'react-icons/fi';
+import { PluginManifest } from './types/types';
 
-interface PluginManifest {
-    id: string;
-    name: string;
-    version: string;
-    supported_hosts: string[];
-    entry_point: string;
-    type: 'script' | 'command';
-    plugin_function: 'download' | 'translate' | 'emulation' | string;
-    external_binary?: boolean;
-    language?: string;
-    successful?: string;
-    install_instruction?: string;
-    supported_actions: string[];
-}
 
 const PluginManager: React.FC = () => {
     const [plugins, setPlugins] = useState<string[]>([]);
