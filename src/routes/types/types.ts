@@ -60,6 +60,7 @@ export interface PluginManifest {
     successful?: string;
     install_instruction?: string;
     supported_actions: string[];
+    category?: string; // Add this line
 }
 
 

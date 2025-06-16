@@ -24,10 +24,8 @@ pub struct AppState {
 pub struct LaunchConfig {
     #[serde(rename = "executablePath")]
     pub executable_path: String,
-
     #[serde(rename = "launchMethod")]
     pub launch_method: String,
-
     #[serde(rename = "customCommand")]
     pub custom_command: Option<String>,
 }
@@ -40,8 +38,8 @@ pub struct DownloadedGameInfo {
     pub extracted: bool,
     pub extracted_path: Option<String>,
     pub downloaded_at: Option<String>,
-    pub launch_config: Option<LaunchConfig>, // New field
-    pub icon_path: Option<String>,           // New field
+    pub launch_config: Option<LaunchConfig>,
+    pub icon_path: Option<String>,
 }
 
 impl Default for AppState {
@@ -67,7 +65,6 @@ pub async fn fetch_article_by_slug(
     token: Option<String>,
 ) -> Result<ArticleResponse, String> {
     let api_url = format!("https://api.chanomhub.online/articles/{}", slug);
-
     let client = reqwest::Client::new();
     let mut request = client.get(&api_url);
 
@@ -95,51 +92,15 @@ pub fn verify_config_file(app: &AppHandle) -> Result<(), String> {
     let config_dir = get_config_dir(app).ok_or("Could not get config directory")?;
     let config_path = config_dir.join("config.json");
 
-    println!("Verifying config file at: {:?}", config_path);
-
     if config_path.exists() {
-        println!("✅ Config file exists");
-
-        match fs::read_to_string(&config_path) {
-            Ok(contents) => {
-                println!("✅ Successfully read file contents");
-                println!("File size: {} bytes", contents.len());
-
-                match serde_json::from_str::<AppState>(&contents) {
-                    Ok(state) => {
-                        println!("✅ Successfully parsed JSON");
-                        println!("State: {:?}", state);
-
-                        if state.token.is_some() {
-                            println!("✅ Token is set: {}", state.token.unwrap());
-                        } else {
-                            println!("⚠️ Token is not set");
-                        }
-
-                        if state.cloudinary.is_some() {
-                            println!("✅ Cloudinary config is set");
-                        } else {
-                            println!("⚠️ Cloudinary config is not set");
-                        }
-                    }
-                    Err(e) => {
-                        println!("❌ Failed to parse JSON: {}", e);
-                        println!("File contents: {}", contents);
-                        return Err(format!("Failed to parse config JSON: {}", e));
-                    }
-                }
-            }
-            Err(e) => {
-                println!("❌ Failed to read file: {}", e);
-                return Err(format!("Failed to read config file: {}", e));
-            }
-        }
+        let contents = fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+        serde_json::from_str::<AppState>(&contents)
+            .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+        Ok(())
     } else {
-        println!("❌ Config file does not exist");
-        return Err("Config file does not exist".to_string());
+        Err("Config file does not exist".to_string())
     }
-
-    Ok(())
 }
 
 pub fn get_config_dir(app: &AppHandle) -> Option<PathBuf> {
@@ -150,10 +111,7 @@ pub fn get_default_download_dir(app: &AppHandle) -> Option<String> {
     let resource_dir = app.path().resource_dir().ok()?;
     let download_dir = resource_dir.join("downloads");
     if !download_dir.exists() {
-        if let Err(e) = fs::create_dir_all(&download_dir) {
-            println!("Failed to create downloads directory: {}", e);
-            return None;
-        }
+        fs::create_dir_all(&download_dir).ok()?;
     }
     download_dir.to_str().map(|s| s.to_string())
 }
@@ -165,21 +123,18 @@ pub fn load_state_from_file(app: &AppHandle) -> Result<AppState, String> {
     let mut state = if config_path.exists() {
         let contents = fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
-        let state: AppState = serde_json::from_str(&contents)
-            .map_err(|e| format!("Failed to parse config file: {}", e))?;
-        println!("Loaded state from file: {:?}", state);
-        state
+        serde_json::from_str(&contents)
+            .map_err(|e| format!("Failed to parse config file: {}", e))?
     } else {
         AppState::default()
     };
 
     if state.games.is_none() {
         state.games = Some(Vec::new());
-        println!("Initialized empty games list in loaded state");
     }
 
     state.download_dir = state.download_dir.or_else(|| get_default_download_dir(app));
-    save_state_to_file(app, &state)?; // บันทึกเพื่อให้แน่ใจว่ามีไฟล์ config.json
+    save_state_to_file(app, &state)?;
     Ok(state)
 }
 
@@ -188,16 +143,11 @@ pub fn save_state_to_file(app: &AppHandle, state: &AppState) -> Result<(), Strin
     fs::create_dir_all(&config_dir).map_err(|e| format!("Failed to create config dir: {}", e))?;
 
     let config_path = config_dir.join("config.json");
-    println!("Saving state to: {:?}", config_path);
-
-    let mut file =
-        File::create(&config_path).map_err(|e| format!("Failed to create config file: {}", e))?;
+    let mut file = File::create(&config_path).map_err(|e| format!("Failed to create config file: {}", e))?;
     let json = serde_json::to_string_pretty(state)
         .map_err(|e| format!("Failed to serialize state: {}", e))?;
     file.write_all(json.as_bytes())
         .map_err(|e| format!("Failed to write config file: {}", e))?;
-
-    println!("State saved successfully");
     Ok(())
 }
 
@@ -209,16 +159,12 @@ pub fn save_active_downloads_to_file(
     fs::create_dir_all(&config_dir).map_err(|e| format!("Failed to create config dir: {}", e))?;
 
     let downloads_path = config_dir.join("active_downloads.json");
-    println!("Saving active downloads to: {:?}", downloads_path);
-
     let mut file = File::create(&downloads_path)
         .map_err(|e| format!("Failed to create active downloads file: {}", e))?;
     let json = serde_json::to_string_pretty(active_downloads)
         .map_err(|e| format!("Failed to serialize active downloads: {}", e))?;
     file.write_all(json.as_bytes())
         .map_err(|e| format!("Failed to write active downloads file: {}", e))?;
-
-    println!("Active downloads saved successfully");
     Ok(())
 }
 
