@@ -4,13 +4,14 @@ import ImageSelector from './ImageSelector';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 
-
 interface ArticleFormProps {
     formData: ArticleFormData;
     handleChange: (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => void;
-    handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles') => Promise<void>;
+    handleFileSelect: (
+        name: 'mainImageFile' | 'additionalImageFiles' | 'backgroundImageFile' | 'coverImageFile'
+    ) => Promise<void>;
     handleSubmit: () => Promise<void>;
     isLoading: boolean;
 }
@@ -22,14 +23,10 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                      handleSubmit,
                                                      isLoading,
                                                  }) => {
-    // ตั้งค่า TipTap Editor สำหรับฟิลด์ body
     const editor = useEditor({
-        extensions: [
-            StarterKit as any,
-        ],
-        content: formData.body, // โหลดเนื้อหาเริ่มต้นจาก formData.body
+        extensions: [StarterKit as any],
+        content: formData.body,
         onUpdate: ({ editor }) => {
-            // อัปเดตค่า body ใน formData เมื่อมีการเปลี่ยนแปลงใน editor
             handleChange({
                 target: { name: 'body', value: editor.getHTML() },
             } as React.ChangeEvent<HTMLTextAreaElement>);
@@ -44,15 +41,12 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                 </h2>
 
                 <form className="space-y-6">
-                    {/* Main Content Section */}
                     <div className="space-y-8">
-                        {/* Basic Information Section */}
                         <div className="bg-base-200 rounded-xl p-6 border border-base-300">
                             <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
                                 <span className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-content text-sm">📋</span>
                                 ข้อมูลพื้นฐาน
                             </h3>
-
                             <div className="space-y-6">
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
@@ -71,7 +65,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         required
                                     />
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
                                         <span className="text-base-content font-medium flex items-center gap-2">
@@ -88,7 +81,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         required
                                     />
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
                                         <span className="text-base-content font-medium flex items-center gap-2">
@@ -97,17 +89,12 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         <span className="badge badge-error badge-sm">จำเป็น</span>
                                     </label>
                                     <div className="border-2 border-base-300 rounded-xl overflow-hidden bg-base-100 focus-within:border-primary transition-all duration-200">
-                                        {/* Rich Text Editor Toolbar */}
                                         <div className="bg-base-200 p-3 border-b border-base-300">
                                             <div className="flex gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => editor?.chain().focus().toggleMark('bold').run()}
-                                                    className={`btn btn-sm ${
-                                                        editor?.isActive('bold')
-                                                            ? 'btn-primary'
-                                                            : 'btn-ghost'
-                                                    }`}
+                                                    className={`btn btn-sm ${editor?.isActive('bold') ? 'btn-primary' : 'btn-ghost'}`}
                                                     title="ตัวหนา"
                                                 >
                                                     <strong>B</strong>
@@ -115,11 +102,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => editor?.chain().focus().toggleMark('italic').run()}
-                                                    className={`btn btn-sm ${
-                                                        editor?.isActive('italic')
-                                                            ? 'btn-primary'
-                                                            : 'btn-ghost'
-                                                    }`}
+                                                    className={`btn btn-sm ${editor?.isActive('italic') ? 'btn-primary' : 'btn-ghost'}`}
                                                     title="ตัวเอียง"
                                                 >
                                                     <em>I</em>
@@ -127,11 +110,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => editor?.chain().focus().toggleNode('heading', 'paragraph', { level: 2 }).run()}
-                                                    className={`btn btn-sm ${
-                                                        editor?.isActive('heading', { level: 2 })
-                                                            ? 'btn-primary'
-                                                            : 'btn-ghost'
-                                                    }`}
+                                                    className={`btn btn-sm ${editor?.isActive('heading', { level: 2 }) ? 'btn-primary' : 'btn-ghost'}`}
                                                     title="หัวข้อ"
                                                 >
                                                     H2
@@ -139,37 +118,30 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => editor?.chain().focus().toggleNode('bulletList', 'paragraph').run()}
-                                                    className={`btn btn-sm ${
-                                                        editor?.isActive('bulletList')
-                                                            ? 'btn-primary'
-                                                            : 'btn-ghost'
-                                                    }`}
+                                                    className={`btn btn-sm ${editor?.isActive('bulletList') ? 'btn-primary' : 'btn-ghost'}`}
                                                     title="รายการ"
                                                 >
                                                     •
                                                 </button>
                                             </div>
                                         </div>
-
-                                        {/* Editor Content */}
                                         <EditorContent
                                             editor={editor}
                                             className="p-4 min-h-[200px] prose max-w-none focus:outline-none text-base-content"
                                         />
                                     </div>
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
-        <span className="text-base-content font-medium flex items-center gap-2">
-            <span className="text-warning">🔢</span> เวอร์ชัน
-        </span>
+                                        <span className="text-base-content font-medium flex items-center gap-2">
+                                            <span className="text-warning">🔢</span> เวอร์ชัน
+                                        </span>
                                         <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
                                     </label>
                                     <input
                                         type="text"
-                                        name="ver"  // เปลี่ยนจาก "version" เป็น "ver"
-                                        value={formData.ver}
+                                        name="ver"
+                                        value={formData.ver || ''}
                                         onChange={handleChange}
                                         placeholder="เช่น v1.0.0, v2.1.5"
                                         className="input input-bordered w-full"
@@ -177,14 +149,11 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 </div>
                             </div>
                         </div>
-
-                        {/* Additional Information Section */}
                         <div className="bg-base-200 rounded-xl p-6 border border-base-300">
                             <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
                                 <span className="w-8 h-8 bg-success rounded-lg flex items-center justify-center text-success-content text-sm">🏷️</span>
                                 ข้อมูลเพิ่มเติม
                             </h3>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
@@ -202,7 +171,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         className="input input-bordered input-info w-full"
                                     />
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
                                         <span className="text-base-content font-medium flex items-center gap-2">
@@ -215,11 +183,10 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         name="categoryList"
                                         value={formData.categoryList}
                                         onChange={handleChange}
-                                        placeholder="เทคโนโลยี, บันเทิง, เกม"
+                                        placeholder="H-GAME"
                                         className="input input-bordered input-secondary w-full"
                                     />
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
                                         <span className="text-base-content font-medium flex items-center gap-2">
@@ -236,7 +203,6 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                         className="input input-bordered input-accent w-full"
                                     />
                                 </div>
-
                                 <div className="form-control">
                                     <label className="flex items-center justify-between mb-2">
                                         <span className="text-base-content font-medium flex items-center gap-2">
@@ -263,14 +229,11 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 </div>
                             </div>
                         </div>
-
-                        {/* Image Upload Section */}
                         <div className="bg-base-200 rounded-xl p-6 border border-base-300">
                             <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
                                 <span className="w-8 h-8 bg-warning rounded-lg flex items-center justify-center text-warning-content text-sm">🖼️</span>
                                 รูปภาพประกอบ
                             </h3>
-
                             <div className="space-y-6">
                                 <ImageSelector
                                     label="รูปภาพหลัก"
@@ -284,7 +247,30 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                     isDisabled={!!formData.mainImageFile}
                                     required={true}
                                 />
-
+                                <ImageSelector
+                                    label="รูปภาพพื้นหลัง"
+                                    imageUrl={formData.backgroundImage || ''}
+                                    imagePath={formData.backgroundImageFile}
+                                    name="backgroundImage"
+                                    selectType="backgroundImageFile"
+                                    handleChange={handleChange}
+                                    handleFileSelect={handleFileSelect}
+                                    placeholder="ระบุ URL หรือเลือกไฟล์"
+                                    isDisabled={!!formData.backgroundImageFile}
+                                    required={false}
+                                />
+                                <ImageSelector
+                                    label="รูปภาพปก"
+                                    imageUrl={formData.coverImage || ''}
+                                    imagePath={formData.coverImageFile}
+                                    name="coverImage"
+                                    selectType="coverImageFile"
+                                    handleChange={handleChange}
+                                    handleFileSelect={handleFileSelect}
+                                    placeholder="ระบุ URL หรือเลือกไฟล์"
+                                    isDisabled={!!formData.coverImageFile}
+                                    required={false}
+                                />
                                 <ImageSelector
                                     label="รูปภาพเพิ่มเติม"
                                     imageUrl={formData.images}
@@ -296,19 +282,16 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                     placeholder="ระบุ URLs (คั่นด้วยคอมม่า)"
                                     isDisabled={formData.additionalImageFiles.length > 0}
                                     isMultiple={true}
+                                    required={false}
                                 />
                             </div>
                         </div>
                     </div>
-
-                    {/* Submit Button */}
                     <div className="card-actions justify-center pt-6">
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            className={`btn btn-primary btn-wide btn-lg ${
-                                isLoading ? 'loading' : ''
-                            }`}
+                            className={`btn btn-primary btn-wide btn-lg ${isLoading ? 'loading' : ''}`}
                             disabled={isLoading}
                         >
                             {isLoading ? (

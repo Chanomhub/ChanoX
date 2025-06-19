@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ImageSelectorProps {
@@ -7,9 +6,9 @@ interface ImageSelectorProps {
     imagePath?: string;
     imagePaths?: string[];
     name: string;
-    selectType: 'mainImageFile' | 'additionalImageFiles';
+    selectType: 'mainImageFile' | 'additionalImageFiles' | 'backgroundImageFile' | 'coverImageFile';
     handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles') => Promise<void>;
+    handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles' | 'backgroundImageFile' | 'coverImageFile') => Promise<void>;
     placeholder: string;
     isDisabled: boolean;
     isMultiple?: boolean;
@@ -32,12 +31,20 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                                                      }) => {
     return (
         <div className="form-control space-y-2">
-            <label className="label">{label}</label>
+            <label className="flex items-center justify-between mb-2">
+                <span className="text-base-content font-medium flex items-center gap-2">
+                    <span className="text-warning">🖼️</span> {label}
+                </span>
+                <span className={`badge ${required ? 'badge-error' : 'badge-ghost'} badge-sm`}>
+                    {required ? 'จำเป็น' : 'ไม่จำเป็น'}
+                </span>
+            </label>
             <div className="flex gap-2">
                 <button
                     type="button"
                     onClick={() => handleFileSelect(selectType)}
                     className="btn btn-outline btn-sm"
+                    disabled={isDisabled}
                 >
                     เลือก{isMultiple ? 'รูปภาพเพิ่มเติม' : 'รูปภาพ'}
                 </button>
@@ -52,13 +59,40 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                     required={required}
                 />
             </div>
-            {imagePath && <p className="text-xs text-gray-500">Selected: {imagePath}</p>}
+            {/* Display selected file path and image preview for single image */}
+            {imagePath && (
+                <div className="mt-2">
+                    <p className="text-xs text-gray-500">Selected: {imagePath}</p>
+                    <img
+                        src={imagePath}
+                        alt="Selected image preview"
+                        className="mt-2 max-w-[200px] h-auto rounded-lg border border-base-300"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none'; // Hide image if it fails to load
+                        }}
+                    />
+                </div>
+            )}
+            {/* Display selected file paths and image previews for multiple images */}
             {isMultiple && imagePaths.length > 0 && (
-                <ul className="text-xs text-gray-500 list-disc list-inside">
-                    {imagePaths.map((file, index) => (
-                        <li key={index}>{file}</li>
-                    ))}
-                </ul>
+                <div className="mt-2">
+                    <p className="text-xs text-gray-500">Selected files:</p>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                        {imagePaths.map((file, index) => (
+                            <div key={index}>
+                                <p className="text-xs text-gray-500 truncate">{file}</p>
+                                <img
+                                    src={file}
+                                    alt={`Additional image ${index + 1}`}
+                                    className="max-w-[150px] h-auto rounded-lg border border-base-300"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = 'none'; // Hide image if it fails to load
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
