@@ -7,9 +7,9 @@ interface ImageSelectorProps {
     imagePath?: string;
     imagePaths?: string[];
     name: string;
-    selectType: 'mainImageFile' | 'additionalImageFiles';
+    selectType: 'mainImageFile' | 'additionalImageFiles' | 'coverImageFile' | 'thumbnailImageFile';
     handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles') => Promise<void>;
+    handleFileSelect: (name: 'mainImageFile' | 'additionalImageFiles' | 'coverImageFile' | 'thumbnailImageFile') => Promise<void>;
     placeholder: string;
     isDisabled: boolean;
     isMultiple?: boolean;

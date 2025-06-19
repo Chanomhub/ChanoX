@@ -32,6 +32,8 @@ const CreateArticle: React.FC = () => {
         images: '',
         additionalImageFiles: [],
         ver: '',
+        coverImage: '',
+        backgroundImage: '',
     });
     const [downloadData, setDownloadData] = useState<DownloadData>({
         downloadName: '',
@@ -83,7 +85,9 @@ const CreateArticle: React.FC = () => {
         setLocalDownloads(prev => prev.filter(item => item.id !== id));
     };
 
-    const handleFileSelect = async (name: 'mainImageFile' | 'additionalImageFiles') => {
+    const handleFileSelect = async (
+        name: 'mainImageFile' | 'additionalImageFiles' | 'coverImageFile' | 'thumbnailImageFile'
+    ) => {
         try {
             const selected = await open({
                 multiple: name === 'additionalImageFiles',
@@ -93,20 +97,26 @@ const CreateArticle: React.FC = () => {
                 console.log('File selection canceled by user');
                 return;
             }
-            if (name === 'mainImageFile') {
-                setFormData((prev) => ({
-                    ...prev,
-                    mainImageFile: selected as string,
-                    mainImage: '',
-                }));
-            } else if (Array.isArray(selected)) {
-                setFormData((prev) => ({
-                    ...prev,
-                    additionalImageFiles: selected,
-                    images: '',
-                }));
+            if (name === 'additionalImageFiles') {
+                if (Array.isArray(selected)) {
+                    setFormData((prev) => ({
+                        ...prev,
+                        additionalImageFiles: selected,
+                        images: '',
+                    }));
+                } else {
+                    throw new Error('Expected array of file paths for additional images');
+                }
             } else {
-                throw new Error('Unexpected return type from file dialog');
+                if (typeof selected === 'string') {
+                    setFormData((prev) => ({
+                        ...prev,
+                        [name]: selected,
+                        [name === 'mainImageFile' ? 'mainImage' : name === 'coverImageFile' ? 'coverImage' : 'backgroundImage']: '',
+                    }));
+                } else {
+                    throw new Error('Expected single file path for image selection');
+                }
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
@@ -373,6 +383,8 @@ const CreateArticle: React.FC = () => {
             images: '',
             additionalImageFiles: [],
             ver: '',
+            coverImage: '',
+            backgroundImage: '',
         });
         setDownloadData({
             downloadName: '',

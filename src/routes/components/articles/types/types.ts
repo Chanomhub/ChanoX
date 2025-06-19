@@ -8,13 +8,16 @@ export interface ArticleFormData {
     categoryList: string;
     platformList: string;
     status: 'DRAFT' | 'PUBLISHED';
-    engine?: 'RENPY' | 'RPGM' | 'UNITY' | 'UNREAL' | 'Godot' | '';
+    engine: string;
     mainImage: string;
+    mainImageFile?: string; // Already present
     images: string;
-    mainImageFile?: string;
     additionalImageFiles: string[];
-    ver?: string;
-    version?: string; // รองรับทั้ง `ver` และ `version`
+    ver: string;
+    coverImage: string;
+    coverImageFile?: string; // Add this
+    backgroundImage: string;
+    thumbnailImageFile?: string; // Add this
 }
 
 export interface ArticlePayload {
