@@ -304,20 +304,20 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                 <ImageSelector
                                     label="รูปภาพปก"
                                     imageUrl={formData.coverImage}
-                                    imagePath={formData.coverImageFile} // Use coverImageFile for selected file path
-                                    name="coverImage" // Fix name to match state field
+                                    imagePath={formData.coverImageFile}
+                                    name="coverImage"
                                     selectType="coverImageFile"
                                     handleChange={handleChange}
                                     handleFileSelect={handleFileSelect}
                                     placeholder="ระบุ URL ภาพปก"
-                                    isDisabled={!!formData.coverImageFile} // Disable input if file is selected
+                                    isDisabled={!!formData.coverImageFile}
                                 />
 
                                 <ImageSelector
                                     label="ภาพพื้นหลัง"
                                     imageUrl={formData.backgroundImage}
-                                    imagePath={formData.thumbnailImageFile} // Use thumbnailImageFile for selected file path
-                                    name="backgroundImage" // Fix name to match state field
+                                    imagePath={formData.thumbnailImageFile}
+                                    name="backgroundImage"
                                     selectType="thumbnailImageFile"
                                     handleChange={handleChange}
                                     handleFileSelect={handleFileSelect}
