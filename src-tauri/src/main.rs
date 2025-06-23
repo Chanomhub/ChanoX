@@ -216,7 +216,7 @@ impl PluginRegistry {
 
 pub async fn execute_plugin<T: DeserializeOwned>(
     manifest: &PluginManifest,
-    action: &str,
+    _action: &str,
     input: Value,
     app: &tauri::AppHandle,
     _cancel_token: CancellationToken,
@@ -634,7 +634,7 @@ async fn extract_icon(app: AppHandle, executable_path: String) -> Result<String,
                         .decode()
                         .map_err(|e| format!("Failed to decode icon: {}", e))?
                 }
-                Err(e) => {
+                Err(_e) => {
                     let default_icon = app
                         .path()
                         .resource_dir()
@@ -1565,7 +1565,7 @@ fn main() {
 
             let initial_state = match state::load_state_from_file(&app_handle) {
                 Ok(loaded_state) => loaded_state,
-                Err(e) => {
+                Err(_e) => {
                     let default_state = AppState::default();
                     save_state_to_file(&app_handle, &default_state)?;
                     default_state
