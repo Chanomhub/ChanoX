@@ -319,7 +319,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                         isActive={editor?.isActive('codeBlock')}
                                                         title="บล็อกโค้ด"
                                                     >
-                                                        { }
+                                                        {'{ }'}
                                                     </ToolbarButton>
                                                 </div>
 
