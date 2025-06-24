@@ -1,8 +1,28 @@
 import React from 'react';
-import {ArticleFormData} from './types/types.ts';
+import { ArticleFormData } from './types/types.ts';
 import ImageSelector from './ImageSelector';
-import {useEditor, EditorContent} from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
+import { useEditor, EditorContent } from '@tiptap/react';
+
+// Replace StarterKit with individual extensions
+import Document from '@tiptap/extension-document';
+import Paragraph from '@tiptap/extension-paragraph';
+import Text from '@tiptap/extension-text';
+import Bold from '@tiptap/extension-bold';
+import Italic from '@tiptap/extension-italic';
+import Strike from '@tiptap/extension-strike';
+import Code from '@tiptap/extension-code';
+import Heading from '@tiptap/extension-heading';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
+import Blockquote from '@tiptap/extension-blockquote';
+import HorizontalRule from '@tiptap/extension-horizontal-rule';
+import HardBreak from '@tiptap/extension-hard-break';
+import Dropcursor from '@tiptap/extension-dropcursor';
+import Gapcursor from '@tiptap/extension-gapcursor';
+import History from '@tiptap/extension-history';
+
+// Your other extensions
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Color from '@tiptap/extension-color';
@@ -38,9 +58,26 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                  }) => {
     const editor = useEditor({
         extensions: [
-            StarterKit.configure({
-                codeBlock: false, // ปิดใช้งาน default code block เพื่อใช้ lowlight แทน
-            }),
+            // StarterKit equivalent extensions
+            Document,
+            Paragraph,
+            Text,
+            Bold,
+            Italic,
+            Strike,
+            Code,
+            Heading,
+            BulletList,
+            OrderedList,
+            ListItem,
+            Blockquote,
+            HorizontalRule,
+            HardBreak,
+            Dropcursor,
+            Gapcursor,
+            History,
+
+            // Your custom extensions
             Underline,
             TextStyle,
             Color,
@@ -75,9 +112,9 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
             }),
         ],
         content: formData.body,
-        onUpdate: ({editor}) => {
+        onUpdate: ({ editor }) => {
             handleChange({
-                target: {name: 'body', value: editor.getHTML()},
+                target: { name: 'body', value: editor.getHTML() },
             } as React.ChangeEvent<HTMLTextAreaElement>);
         },
         editorProps: {
