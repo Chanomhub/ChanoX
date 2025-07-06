@@ -906,28 +906,54 @@ fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        let paths_to_check = vec![
-            app.path()
-                .resource_dir()
-                .map_err(|e| format!("Failed to get resource dir: {}", e))?
-                .join("binaries")
-                .join("image")
-                .join("WebView2-x86_64-pc-windows-msvc.exe"),
-        ];
+        let mut binary_path = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("Failed to get resource dir: {}", e))?
+            .join("binaries")
+            .join("Release")
+            .join("WebView2-x86_64-pc-windows-msvc.exe");
 
-        for path in paths_to_check {
-            if path.exists() {
-                let path_str = path.to_str().ok_or("Failed to convert path to string")?;
-                app.shell()
-                    .command(path_str)
-                    .args(&["/silent", "/install"])
-                    .spawn()
-                    .map_err(|e| format!("Failed to install WebView2 runtime: {}", e))?;
-                return Ok(());
+        // ตรวจสอบว่าโฟลเดอร์ binaries มีอยู่หรือไม่ หากไม่มีให้สร้างใหม่
+        let binaries_dir = binary_path.parent().unwrap();
+        if !binaries_dir.exists() {
+            fs::create_dir_all(binaries_dir)
+                .map_err(|e| format!("Failed to create binaries directory: {}", e))?;
+        }
+
+        // หากไม่พบไฟล์ติดตั้งในเครื่อง ให้ดาวน์โหลดจาก GitHub
+        if !binary_path.exists() {
+            // กำหนด URL ของไฟล์ติดตั้งบน GitHub
+            let download_url = "https://github.com/MicrosoftEdge/WebView2Installer/raw/main/EDG/WebView2RuntimeInstallerX64.exe";
+            
+            // เรียกใช้ PowerShell เพื่อดาวน์โหลดไฟล์แบบซิงโครนัส
+            let download_result = StdCommand::new("powershell")
+                .args([
+                    "-Command",
+                    &format!("Invoke-WebRequest -Uri {} -OutFile {}", download_url, binary_path.display())
+                ])
+                .output();
+
+            match download_result {
+                Ok(output) => {
+                    if !output.status.success() {
+                        return Err("WebView2 download failed with non-zero exit code".to_string());
+                    }
+                }
+                Err(e) => {
+                    return Err(format!("Failed to start WebView2 download: {}", e));
+                }
             }
         }
 
-        Err("WebView2 runtime not found and installer missing.".to_string())
+        // ติดตั้ง WebView2 Runtime
+        let path_str = binary_path.to_str().ok_or("Failed to convert path to string")?;
+        StdCommand::new(path_str)
+            .args(&["/silent", "/install"])
+            .spawn()
+            .map_err(|e| format!("Failed to install WebView2 runtime: {}", e))?;
+        
+        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
