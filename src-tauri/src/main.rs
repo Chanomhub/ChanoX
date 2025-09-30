@@ -1629,6 +1629,7 @@ fn main() {
             get_cloudinary_config,
             save_all_settings,
             upload_to_cloudinary,
+            api::get_articles,
             fetch_article_by_slug,
             get_download_dir,
             set_download_dir,
