@@ -15,7 +15,15 @@
     "dialog:allow-message",
     "updater:default",
     "updater:allow-check",
-    "updater:allow-download-and-install"
+    "updater:allow-download-and-install",
+    "notification:allow-is-permission-granted",
+    "notification:default",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**", "$DOWNLOADS/**"]
+    }
 
   ]
 }

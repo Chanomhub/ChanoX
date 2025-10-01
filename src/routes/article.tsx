@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchArticleBySlug } from "./api";
 import { ArticleDetailModal } from "./components/articles/ArticleDetailModal.tsx";
-import { ArticleDetail, ArticleDownload, TranslationFile } from "./components/articles/types/types.ts";
+import { ArticleDetail, ArticleDownload } from "./components/articles/types/types.ts";
 
 const ArticlePage: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
@@ -10,7 +10,6 @@ const ArticlePage: React.FC = () => {
 
     const [articleDetail, setArticleDetail] = useState<ArticleDetail | null>(null);
     const [articleDownloads, setArticleDownloads] = useState<ArticleDownload[]>([]);
-    const [translationFiles, setTranslationFiles] = useState<TranslationFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,15 +34,9 @@ const ArticlePage: React.FC = () => {
                 const downloadsArray = Array.isArray(downloadsData.links) ? downloadsData.links : [];
                 setArticleDownloads(downloadsArray);
 
-                // Fetch translations
-                const translationResponse = await fetch(`https://api.chanomhub.online/api/translation-files/article/${slug}`);
-                if (!translationResponse.ok) throw new Error(`Translation API failed: ${translationResponse.status}`);
-                const translationData = await translationResponse.json();
-                setTranslationFiles(Array.isArray(translationData.translationFiles) ? translationData.translationFiles : []);
             } catch (err: any) {
                 setError(err.message || "ไม่สามารถโหลดข้อมูลบทความได้");
                 setArticleDownloads([]);
-                setTranslationFiles([]);
             } finally {
                 setLoading(false);
             }
@@ -107,7 +100,6 @@ const ArticlePage: React.FC = () => {
                     <ArticleDetailModal
                         articleDetail={articleDetail}
                         articleDownloads={articleDownloads}
-                        translationFiles={translationFiles}
                         loadingDetail={false}
                         onClose={handleClose}
                     />

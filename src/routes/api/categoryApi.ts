@@ -1,26 +1,19 @@
 // categoryApi.ts
-import { Category, SearchResponse, isValidResponse } from "./types";
-import { fetchData } from "./utils";
+import axios from "axios";
+import { Category } from "./types";
 
-const API_URL = "https://search.chanomhub.online/indexes/category/search";
+const API_URL = "https://api.chanomhub.online/api/categories";
 
-export async function fetchCategories(): Promise<Category[]> {
+interface CategoriesResponse {
+    categories: string[];
+}
+
+export const fetchCategories = async (): Promise<Category[]> => {
     try {
-        const payload = {
-            limit: 100,
-            sort: ["articleCount:desc"]
-        };
-
-        const response = await fetchData<SearchResponse<Category>>(API_URL, payload);
-
-        if (isValidResponse<Category>(response)) {
-            return response.hits;
-        }
-
-        console.error("Invalid category response format:", response);
-        return [];
+        const response = await axios.get<CategoriesResponse>(API_URL);
+        return response.data.categories;
     } catch (error) {
         console.error("Error fetching categories:", error);
         return [];
     }
-}
+};

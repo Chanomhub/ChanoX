@@ -1,26 +1,19 @@
 // platformApi.ts
-import { Platform, SearchResponse, isValidResponse } from "./types";
-import { fetchData } from "./utils";
+import axios from "axios";
+import { Platform } from "./types";
 
-const API_URL = "https://search.chanomhub.online/indexes/platform/search";
+const API_URL = "https://api.chanomhub.online/api/platforms";
 
-export async function fetchPlatforms(): Promise<Platform[]> {
+interface PlatformsResponse {
+    platforms: string[];
+}
+
+export const fetchPlatforms = async (): Promise<Platform[]> => {
     try {
-        const payload = {
-            limit: 100,
-            sort: ["articleCount:desc"]
-        };
-
-        const response = await fetchData<SearchResponse<Platform>>(API_URL, payload);
-
-        if (isValidResponse<Platform>(response)) {
-            return response.hits;
-        }
-
-        console.error("Invalid platform response format:", response);
-        return [];
+        const response = await axios.get<PlatformsResponse>(API_URL);
+        return response.data.platforms;
     } catch (error) {
         console.error("Error fetching platforms:", error);
         return [];
     }
-}
+};

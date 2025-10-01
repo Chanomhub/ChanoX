@@ -53,28 +53,6 @@ export interface DownloadData {
     isActive: boolean;
 }
 
-export interface TranslationFile {
-    id: number;
-    articleId: number;
-    translatorId: number;
-    name: string;
-    description: string;
-    language: string;
-    creditTo: string;
-    fileUrl: string;
-    version: string;
-    articleVersion: number;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-    translator: {
-        id: number;
-        name: string;
-        image: string;
-    };
-    images: string[];
-}
-
 export interface ArticleDetail {
     id: number;
     title: string;

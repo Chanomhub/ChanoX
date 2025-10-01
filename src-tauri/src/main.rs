@@ -6,17 +6,16 @@
 mod archiver;
 mod cloudinary;
 mod state;
+mod api;
 
 use crate::state::{
     AppState, ArticleResponse, CloudinaryConfig, DownloadedGameInfo, LaunchConfig,
     cleanup_active_downloads, save_active_downloads_to_file, save_state_to_file,
 };
-use ico::IconDir;
-use image::DynamicImage;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::process::{Command as StdCommand, Command};
 use std::sync::{Mutex, RwLock};
@@ -894,7 +893,7 @@ fn set_download_dir(
     Ok(())
 }
 
-fn ensure_webview2_runtime(app: &tauri::AppHandle) -> Result<(), String> {
+fn ensure_webview2_runtime(_app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         let output = StdCommand::new("reg")

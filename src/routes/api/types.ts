@@ -1,54 +1,70 @@
 // types.ts
 // Common interfaces
-export interface Author {
-    id: number;
-    name: string;
-    image: string;
+export interface Profile {
+    username: string;
+    bio: string | null;
+    image: string | null;
+    backgroundImage: string | null;
+    following: boolean;
+    socialMediaLinks: SocialMediaLinkDTO[];
 }
 
-export interface Tag {
+export interface Author extends Profile {
     id: number;
-    name: string;
-    articleCount?: number;
 }
 
-export interface Platform {
-    id: number;
-    name: string;
-    articleCount?: number;
-}
+export interface Tag extends string {}
 
-export interface Category {
-    id: number;
-    name: string;
-    articleCount?: number;
-}
+export interface Platform extends string {}
 
-export interface Game {
+export interface Category extends string {}
+
+export interface Article {
     id: number;
     title: string;
-    description: string;
     slug: string;
-    mainImage: string;
-    tags: Tag[];
-    platforms: Platform[];
-    categories: Category[];
-    author: Author;
-    createdAt: number;
-    updatedAt?: number;
+    description: string;
+    body: string;
+    ver: string | null; // Assuming 'object' in API doc means it can be string or null
+    version?: number; // Optional as it might not always be present
+    createdAt: string; // Changed from number to string
+    updatedAt: string; // Changed from number to string
+    status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "ARCHIVED" | "NOT_APPROVED" | "NEEDS_REVISION";
+    engine?: string; // Optional
+    mainImage: string | null; // Assuming 'object' in API doc means string or null
+    images: string[];
+    backgroundImage: string | null;
+    coverImage: string | null;
+    tagList: string[]; // Changed from Tag[]
+    categoryList: string[]; // Changed from Category[]
+    platformList: string[]; // Changed from Platform[]
+    author: Author; // Using the extended Author interface
+    favorited: boolean;
+    favoritesCount: number;
+    sequentialCode: string | null; // Assuming 'object' in API doc means string or null
+}
+
+export interface ArticleSummary {
+    id: number;
+    title: string;
+    slug: string;
+    description: string;
+    author: string | Profile; // Changed to be more flexible
+    categoryList: string[];
+    platformList: string[];
+    mainImage?: string; // Optional, as it might not always be present in summary
+    createdAt?: string; // Optional, as it might not always be present in summary
 }
 
 // API Response interfaces
-export interface SearchResponse<T> {
-    hits: T[];
-    offset?: number;
-    limit?: number;
-    estimatedTotalHits?: number;
-    processingTimeMs?: number;
-    query?: string;
+export interface MultipleArticlesResponse {
+    articles: ArticleSummary[];
+    articlesCount: number;
 }
 
-// Type guard function to check if response is valid
-export function isValidResponse<T>(response: any): response is SearchResponse<T> {
-    return response && Array.isArray(response.hits);
+export interface SocialMediaLinkDTO {
+    platform: string;
+    url: string;
 }
+
+// Removed SearchResponse and isValidResponse as they are no longer directly used with the new API structure

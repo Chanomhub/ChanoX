@@ -1,26 +1,19 @@
 // tagApi.ts
-import { Tag, SearchResponse, isValidResponse } from "./types";
-import { fetchData } from "./utils";
+import axios from "axios";
+import { Tag } from "./types";
 
-const API_URL = "https://search.chanomhub.online/indexes/tag/search";
+const API_URL = "https://api.chanomhub.online/api/tags";
 
-export async function fetchTags(): Promise<Tag[]> {
+interface TagsResponse {
+    tags: string[];
+}
+
+export const fetchTags = async (): Promise<Tag[]> => {
     try {
-        const payload = {
-            limit: 100,
-            sort: ["articleCount:desc"]
-        };
-
-        const response = await fetchData<SearchResponse<Tag>>(API_URL, payload);
-
-        if (isValidResponse<Tag>(response)) {
-            return response.hits;
-        }
-
-        console.error("Invalid tag response format:", response);
-        return [];
+        const response = await axios.get<TagsResponse>(API_URL);
+        return response.data.tags;
     } catch (error) {
         console.error("Error fetching tags:", error);
         return [];
     }
-}
+};

@@ -1,52 +1,58 @@
-import React, { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import {ArticleDownload} from "../components/articles/types/types.ts";
+import { useState } from "react";
+import { ArticleDownload } from "../components/articles/types/types.ts";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { open } from "@tauri-apps/plugin-shell";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import * as fs from "@tauri-apps/plugin-fs";
+import { downloadDir, join } from '@tauri-apps/api/path';
 
 export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ downloads }) => {
     const [downloadStatus, setDownloadStatus] = useState<{ [key: string]: string }>({});
     const [downloadProgress, setDownloadProgress] = useState<{ [key: string]: number }>({});
-
-    useEffect(() => {
-        // Set up event listeners for download progress/completion
-        const setupListeners = async () => {
-            const listeners = [
-                await listen('download-progress', (event) => {
-                    const { id, progress } = event.payload as { id: string; progress: number };
-                    setDownloadProgress((prev) => ({ ...prev, [id]: progress }));
-                    setDownloadStatus((prev) => ({ ...prev, [id]: `กำลังดาวน์โหลด (${progress.toFixed(2)}%)` }));
-                }),
-                await listen('download-complete', (event) => {
-                    const { id } = event.payload as { id: string; filename: string };
-                    setDownloadStatus((prev) => ({ ...prev, [id]: `เสร็จสมบูรณ์` }));
-                    setDownloadProgress((prev) => ({ ...prev, [id]: 100 }));
-                }),
-                await listen('download-error', (event) => {
-                    const { id, error } = event.payload as { id: string; error: string };
-                    setDownloadStatus((prev) => ({ ...prev, [id]: `ข้อผิดพลาด: ${error}` }));
-                }),
-            ];
-            return () => listeners.forEach((unlisten) => unlisten());
-        };
-
-        setupListeners();
-    }, []);
 
     const handleDownload = async (download: ArticleDownload) => {
         if (!download.isActive || download.status !== 'APPROVED') return;
 
         const downloadId = `article_download_${download.id}`;
         try {
-            setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังเริ่มต้น...' }));
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังเปิดเบราว์เซอร์...' }));
             setDownloadProgress((prev) => ({ ...prev, [downloadId]: 0 }));
 
-            await invoke('start_webview2_download', {
-                url: download.url,
-                filename: download.name,
-                downloadId,
-            });
+            await open(download.url);
+
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `เปิดในเบราว์เซอร์แล้ว` }));
+            setDownloadProgress((prev) => ({ ...prev, [downloadId]: 100 }));
+
         } catch (error) {
+            console.error("Error opening external link:", error);
             setDownloadStatus((prev) => ({ ...prev, [downloadId]: `ข้อผิดพลาด: ${String(error)}` }));
+        }
+    };
+
+    const handleMoveDownloadedFile = async (downloadId: string, suggestedFileName: string) => {
+        try {
+            const selectedPath = await openFileDialog({
+                multiple: false,
+                directory: false,
+                title: `เลือกไฟล์ ${suggestedFileName} ที่ดาวน์โหลดแล้ว`,
+            });
+
+            if (selectedPath && typeof selectedPath === 'string') {
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังย้ายไฟล์...' }));
+                const appDownloadsPath = await downloadDir();
+                const destinationPath = await join(appDownloadsPath, suggestedFileName);
+
+                await fs.copyFile(selectedPath, destinationPath);
+                await fs.removeFile(selectedPath);
+
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'ย้ายไฟล์สำเร็จ' }));
+            } else {
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'ยกเลิกการย้ายไฟล์' }));
+            }
+        } catch (error) {
+            console.error("Error moving file:", error);
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `ข้อผิดพลาดในการย้ายไฟล์: ${String(error)}` }));
         }
     };
 
@@ -59,30 +65,35 @@ export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ d
                 ) : (
                     downloads.map((download) => {
                         const downloadId = `article_download_${download.id}`;
-                        const isDownloading = downloadStatus[downloadId]?.includes('กำลังดาวน์โหลด');
+                        const isDownloading = downloadStatus[downloadId]?.includes('กำลังเปิดเบราว์เซอร์');
 
                         return (
-                            <div key={download.id} className="p-4 bg-base-200 rounded-lg flex justify-between">
+                            <div key={download.id} className="p-4 border rounded-lg flex justify-between items-center">
                                 <div>
                                     <p className="font-medium">{download.name}</p>
-                                    <p className="text-sm">
+                                    <p className="text-sm text-muted-foreground">
                                         สถานะ: {downloadStatus[downloadId] || 'พร้อมดาวน์โหลด'}
                                     </p>
-                                    {downloadProgress[downloadId] > 0 && (
-                                        <progress
-                                            className="progress progress-primary w-full mt-2"
-                                            value={downloadProgress[downloadId]}
-                                            max="100"
-                                        />
+                                    {downloadProgress[downloadId] > 0 && downloadProgress[downloadId] < 100 && (
+                                        <Progress value={downloadProgress[downloadId]} className="w-full mt-2" />
                                     )}
                                 </div>
-                                <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={() => handleDownload(download)}
-                                    disabled={isDownloading}
-                                >
-                                    {isDownloading ? 'กำลังดาวน์โหลด...' : 'ดาวน์โหลด'}
-                                </button>
+                                <div className="flex space-x-2">
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleDownload(download)}
+                                        disabled={isDownloading}
+                                    >
+                                        {isDownloading ? 'กำลังเปิด...' : 'ดาวน์โหลด'}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleMoveDownloadedFile(downloadId, download.name)}
+                                    >
+                                        ย้ายไฟล์ที่ดาวน์โหลดแล้ว
+                                    </Button>
+                                </div>
                             </div>
                         );
                     })
