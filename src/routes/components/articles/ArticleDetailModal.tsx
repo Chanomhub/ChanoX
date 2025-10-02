@@ -232,7 +232,7 @@ export const ArticleDetailModal: React.FC<{
                                     />
 
                                     {/* Gallery */}
-                                    {articleDetail?.images.length > 0 && (
+                                    {articleDetail?.images && articleDetail.images.length > 0 && (
                                         <div className="mt-8 border-t pt-6">
                                             <h3 className="text-lg font-semibold mb-4">แกลเลอรี</h3>
                                             <div className={`grid gap-4 ${

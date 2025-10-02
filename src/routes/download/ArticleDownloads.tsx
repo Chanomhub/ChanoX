@@ -5,7 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { open } from "@tauri-apps/plugin-shell";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import * as fs from "@tauri-apps/plugin-fs";
-import { downloadDir, join } from '@tauri-apps/api/path';
+import { join } from '@tauri-apps/api/path';
+import { invoke } from "@tauri-apps/api/core";
 
 export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ downloads }) => {
     const [downloadStatus, setDownloadStatus] = useState<{ [key: string]: string }>({});
@@ -40,11 +41,11 @@ export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ d
 
             if (selectedPath && typeof selectedPath === 'string') {
                 setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังย้ายไฟล์...' }));
-                const appDownloadsPath = await downloadDir();
+                const appDownloadsPath = await invoke<string>("get_download_dir");
                 const destinationPath = await join(appDownloadsPath, suggestedFileName);
 
                 await fs.copyFile(selectedPath, destinationPath);
-                await fs.removeFile(selectedPath);
+                await fs.remove(selectedPath);
 
                 setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'ย้ายไฟล์สำเร็จ' }));
             } else {

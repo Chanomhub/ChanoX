@@ -4,6 +4,16 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { DownloadedFile, SavedGameInfo, LaunchConfig } from './types/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, RefreshCw, FolderOpen, Play, AlertCircle, Info, ImageIcon } from 'lucide-react';
 
 // Reusable Game Card Component
 const GameCard: React.FC<{
@@ -19,90 +29,104 @@ const GameCard: React.FC<{
     const isExtractable = (filename: string): boolean => /\.(zip|7z|rar)$/i.test(filename);
 
     return (
-        <div className="card bg-base-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 rounded-xl overflow-hidden">
-            <div className="card-body p-4">
+        <Card className="hover:shadow-lg transition-all duration-300 overflow-hidden">
+            <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
-                    <img
-                        src={getIconUrl(file.iconPath)}
-                        alt={`${file.filename} icon`}
-                        className="w-12 h-12 rounded-lg object-contain bg-base-200 p-1"
-                        onError={(e) => (e.currentTarget.src = '/icon.webp')}
-                    />
-                    <h2 className="card-title text-lg font-semibold truncate">{file.filename}</h2>
+                    <div className="w-12 h-12 rounded-lg bg-secondary/10 p-1 flex items-center justify-center">
+                        <img
+                            src={getIconUrl(file.iconPath)}
+                            alt={`${file.filename} icon`}
+                            className="w-full h-full rounded object-contain"
+                            onError={(e) => (e.currentTarget.src = '/icon.webp')}
+                        />
+                    </div>
+                    <h3 className="font-semibold text-lg truncate flex-1">{file.filename}</h3>
                 </div>
-                <p className="text-sm text-base-content/70">
-                    Status: {file.extracted ? 'Extracted' : 'Not Extracted'}
-                </p>
-                <p className="text-sm text-base-content/70 truncate" title={file.path}>
-                    Path: {file.path || 'Not available'}
-                </p>
-                <div className="card-actions flex flex-col gap-2 mt-4">
+                <div className="space-y-1 mb-4">
+                    <p className="text-sm text-muted-foreground">
+                        Status: {file.extracted ? 'Extracted' : 'Not Extracted'}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate" title={file.path}>
+                        Path: {file.path || 'Not available'}
+                    </p>
+                </div>
+                <div className="flex flex-col gap-2">
                     {!file.extracted && isExtractable(file.filename) && file.path && (
                         file.extractionStatus === 'extracting' ? (
-                            <div className="w-full">
-                                <p className="text-sm text-info mb-1">Extracting...</p>
-                                <progress
-                                    className="progress progress-primary w-full"
-                                    value={file.extractionProgress || 0}
-                                    max="100"
-                                />
-                                <p className="text-sm text-center mt-1">
+                            <div className="space-y-2">
+                                <p className="text-sm text-blue-600 dark:text-blue-400">Extracting...</p>
+                                <Progress value={file.extractionProgress || 0} className="h-2" />
+                                <p className="text-sm text-center text-muted-foreground">
                                     {(file.extractionProgress || 0).toFixed(1)}%
                                 </p>
                             </div>
                         ) : file.extractionStatus === 'failed' ? (
-                            <div className="w-full">
-                                <p className="text-sm text-error mb-1">Extraction failed: {file.error}</p>
-                                <button
-                                    className="btn btn-primary btn-sm w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/80 hover:to-primary"
+                            <div className="space-y-2">
+                                <Alert variant="destructive">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription className="text-sm">
+                                        Extraction failed: {file.error}
+                                    </AlertDescription>
+                                </Alert>
+                                <Button
+                                    className="w-full"
                                     onClick={() => handleExtract(file)}
                                 >
                                     Retry Extraction
-                                </button>
+                                </Button>
                             </div>
                         ) : (
-                            <button
-                                className="btn btn-primary btn-sm w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/80 hover:to-primary"
+                            <Button
+                                className="w-full"
                                 onClick={() => handleExtract(file)}
-                                disabled={file.extractionStatus === 'extracting' as DownloadedFile['extractionStatus']}
                             >
                                 Extract File
-                            </button>
+                            </Button>
                         )
                     )}
                     {file.extracted && file.extractedPath && (
                         <>
                             <div className="flex gap-2">
-                                <button
-                                    className="btn btn-outline btn-sm flex-1"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
                                     onClick={() => handleOpen(file.path!)}
                                 >
-                                    Archive Location
-                                </button>
-                                <button
-                                    className="btn btn-outline btn-info btn-sm flex-1"
+                                    <FolderOpen className="w-4 h-4 mr-1" />
+                                    Archive
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
                                     onClick={() => handleOpen(file.extractedPath!)}
                                 >
-                                    Extracted Files
-                                </button>
+                                    <FolderOpen className="w-4 h-4 mr-1" />
+                                    Extracted
+                                </Button>
                             </div>
-                            <button
-                                className="btn btn-outline btn-sm w-full"
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
                                 onClick={() => handleChangeIcon(file.id)}
                             >
+                                <ImageIcon className="w-4 h-4 mr-2" />
                                 Change Icon
-                            </button>
-                            <button
-                                className="btn btn-primary btn-sm w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/80 hover:to-primary"
+                            </Button>
+                            <Button
+                                className="w-full"
                                 onClick={() => handleLaunchGame(file)}
                             >
+                                <Play className="w-4 h-4 mr-2" />
                                 {file.launchConfig ? 'Launch Game' : 'Configure Launch'}
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 };
 
@@ -133,7 +157,7 @@ const LaunchModal: React.FC<{
           saveLaunchConfig,
           handleExtract,
       }) => {
-    if (!launchModalOpen || !game) return null;
+    if (!game) return null;
 
     const getIconUrl = (iconPath?: string): string =>
         iconPath ? convertFileSrc(iconPath) : '/icon.webp';
@@ -142,127 +166,123 @@ const LaunchModal: React.FC<{
     const isExtracting = game.extractionStatus === 'extracting';
 
     return (
-        <div className="modal modal-open animate-fade-in">
-            <div className="modal-box max-w-lg bg-base-200/95 backdrop-blur-sm shadow-2xl rounded-2xl p-6">
-                <div className="flex items-center gap-4 mb-6 border-b border-base-300 pb-4">
-                    <img
-                        src={getIconUrl(game.iconPath)}
-                        alt={`${game.filename} icon`}
-                        className="w-12 h-12 rounded-lg object-contain bg-base-300 p-1"
-                        onError={(e) => (e.currentTarget.src = '/icon.webp')}
-                    />
-                    <div>
-                        <h3 className="font-bold text-xl">{game.filename}</h3>
-                        <p className="text-sm text-base-content/70">Configure launch settings</p>
-                    </div>
-                    <button
-                        className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4"
-                        onClick={() => setLaunchModalOpen(null)}
-                    >
-                        ✕
-                    </button>
-                </div>
-                {isExtracting ? (
-                    <div className="alert alert-info mb-4 rounded-lg">
-                        <div className="flex-1">
-                            <h3 className="font-semibold">Extraction in Progress</h3>
-                            <p className="text-sm">Please wait until the extraction is complete.</p>
-                            <progress
-                                className="progress progress-primary w-full mt-2"
-                                value={game.extractionProgress || 0}
-                                max="100"
+        <Dialog open={!!launchModalOpen} onOpenChange={(open) => !open && setLaunchModalOpen(null)}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 rounded-lg bg-secondary/10 p-1">
+                            <img
+                                src={getIconUrl(game.iconPath)}
+                                alt={`${game.filename} icon`}
+                                className="w-full h-full rounded object-contain"
+                                onError={(e) => (e.currentTarget.src = '/icon.webp')}
                             />
-                            <p className="text-sm text-center mt-1">{(game.extractionProgress || 0).toFixed(1)}%</p>
                         </div>
-                    </div>
-                ) : !isGameExtracted ? (
-                    <div className="alert alert-warning mb-4 rounded-lg">
                         <div className="flex-1">
-                            <h3 className="font-semibold">Extract Required</h3>
-                            <p className="text-sm">Please extract the game files first.</p>
+                            <DialogTitle>{game.filename}</DialogTitle>
+                            <p className="text-sm text-muted-foreground">Configure launch settings</p>
                         </div>
-                        <button
-                            className="btn btn-sm btn-warning"
-                            onClick={() => {
-                                setLaunchModalOpen(null);
-                                if (game.path) handleExtract(game);
-                            }}
-                        >
-                            Extract Now
-                        </button>
                     </div>
+                </DialogHeader>
+
+                {isExtracting ? (
+                    <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                            <div className="space-y-2">
+                                <h4 className="font-semibold">Extraction in Progress</h4>
+                                <p className="text-sm">Please wait until the extraction is complete.</p>
+                                <Progress value={game.extractionProgress || 0} className="h-2" />
+                                <p className="text-sm text-center">{(game.extractionProgress || 0).toFixed(1)}%</p>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                ) : !isGameExtracted ? (
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                            <div className="space-y-2">
+                                <h4 className="font-semibold">Extract Required</h4>
+                                <p className="text-sm">Please extract the game files first.</p>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => {
+                                        setLaunchModalOpen(null);
+                                        if (game.path) handleExtract(game);
+                                    }}
+                                >
+                                    Extract Now
+                                </Button>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
                 ) : (
                     <div className="space-y-4">
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text font-medium">Executable File</span>
-                                {game.extractedPath && (
-                                    <span className="label-text-alt text-base-content/70">
-                    From: {game.extractedPath}
-                  </span>
-                                )}
-                            </label>
+                        <div className="space-y-2">
+                            <Label>Executable File</Label>
+                            {game.extractedPath && (
+                                <p className="text-xs text-muted-foreground">
+                                    From: {game.extractedPath}
+                                </p>
+                            )}
                             <div className="flex gap-2">
-                                <input
-                                    type="text"
+                                <Input
                                     value={selectedExecutable}
                                     readOnly
                                     placeholder="Select an executable file"
-                                    className="input input-bordered flex-1"
+                                    className="flex-1"
                                 />
-                                <button
-                                    className="btn btn-primary btn-sm bg-gradient-to-r from-primary to-primary/80"
-                                    onClick={() => handleSelectExecutable(launchModalOpen)}
+                                <Button
+                                    onClick={() => handleSelectExecutable(launchModalOpen!)}
                                 >
                                     Browse
-                                </button>
+                                </Button>
                             </div>
                         </div>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text font-medium">Launch Method</span>
-                            </label>
+
+                        <div className="space-y-2">
+                            <Label>Launch Method</Label>
                             <div className="grid grid-cols-2 gap-2">
                                 {(['direct', 'python', 'wine', 'custom'] as const).map((method) => (
-                                    <div
+                                    <button
                                         key={method}
-                                        className={`border rounded-lg p-3 cursor-pointer transition-all hover:bg-base-300 ${
+                                        className={`border rounded-lg p-3 transition-all hover:bg-accent ${
                                             launchMethod === method
-                                                ? 'border-primary bg-base-300 ring-1 ring-primary'
-                                                : 'border-base-300'
+                                                ? 'border-primary bg-accent ring-2 ring-primary'
+                                                : 'border-input'
                                         }`}
                                         onClick={() => setLaunchMethod(method)}
                                     >
                                         <div className="text-center text-sm capitalize">{method}</div>
-                                    </div>
+                                    </button>
                                 ))}
                             </div>
                         </div>
+
                         {launchMethod === 'custom' && (
-                            <div className="form-control">
-                                <label className="label">
-                                    <span className="label-text font-medium">Custom Command</span>
-                                </label>
-                                <textarea
+                            <div className="space-y-2">
+                                <Label>Custom Command</Label>
+                                <Textarea
                                     value={customCommand}
                                     onChange={(e) => setCustomCommand(e.target.value)}
-                                    className="textarea textarea-bordered h-20"
                                     placeholder="Enter custom launch command"
+                                    className="h-20"
                                 />
                             </div>
                         )}
                     </div>
                 )}
-                <div className="modal-action mt-6 flex justify-end gap-2">
-                    <button
-                        className="btn btn-outline btn-sm"
+
+                <DialogFooter>
+                    <Button
+                        variant="outline"
                         onClick={() => setLaunchModalOpen(null)}
                     >
                         Cancel
-                    </button>
-                    <button
-                        className="btn btn-primary btn-sm bg-gradient-to-r from-primary to-primary/80"
-                        onClick={() => saveLaunchConfig(launchModalOpen)}
+                    </Button>
+                    <Button
+                        onClick={() => saveLaunchConfig(launchModalOpen!)}
                         disabled={
                             isExtracting ||
                             !isGameExtracted ||
@@ -271,10 +291,10 @@ const LaunchModal: React.FC<{
                         }
                     >
                         Save Configuration
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -560,65 +580,78 @@ const Games: React.FC = () => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
-                <span className="loading loading-spinner loading-lg text-primary"></span>
+                <Loader2 className="w-12 h-12 animate-spin text-primary" />
             </div>
         );
     }
 
     return (
-        <div className="flex min-h-screen bg-base-100">
+        <div className="flex min-h-screen bg-background">
             {/* Sidebar */}
-            <div className="w-64 bg-base-200 p-4 hidden md:block sticky top-0 h-screen overflow-y-auto">
+            <div className="w-64 border-r bg-card p-4 hidden md:block sticky top-0 h-screen">
                 <h2 className="text-xl font-bold mb-4">Registered Games</h2>
-                <button
-                    className="btn btn-outline btn-sm w-full mb-4"
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mb-4"
                     onClick={() => setRefreshKey((prev) => prev + 1)}
                 >
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh List
-                </button>
-                <div className="flex flex-col gap-1">
-                    {files.map((file) => (
-                        <button
-                            key={file.id}
-                            className="btn btn-ghost justify-start flex items-center gap-2 text-sm hover:bg-base-300 rounded-lg"
-                            onClick={() => handleOpen(file.path)}
-                        >
-                            <img
-                                src={convertFileSrc(file.iconPath || '/icon.webp')}
-                                alt={`${file.filename} icon`}
-                                className="w-6 h-6 rounded object-contain"
-                                onError={(e) => (e.currentTarget.src = '/icon.webp')}
-                            />
-                            <span className="flex-1 text-left truncate">{file.filename}</span>
-                            {file.extractionStatus === 'extracting' && (
-                                <span className="text-xs text-info">Extracting...</span>
-                            )}
-                            {file.extractionStatus === 'failed' && (
-                                <span className="text-xs text-error">Failed</span>
-                            )}
-                        </button>
-                    ))}
-                </div>
+                </Button>
+                <ScrollArea className="h-[calc(100vh-8rem)]">
+                    <div className="flex flex-col gap-1">
+                        {files.map((file) => (
+                            <Button
+                                key={file.id}
+                                variant="ghost"
+                                className="justify-start gap-2 h-auto py-2 px-3"
+                                onClick={() => handleOpen(file.path)}
+                            >
+                                <img
+                                    src={convertFileSrc(file.iconPath || '/icon.webp')}
+                                    alt={`${file.filename} icon`}
+                                    className="w-6 h-6 rounded object-contain"
+                                    onError={(e) => (e.currentTarget.src = '/icon.webp')}
+                                />
+                                <span className="flex-1 text-left truncate text-sm">{file.filename}</span>
+                                {file.extractionStatus === 'extracting' && (
+                                    <span className="text-xs text-blue-600">Extracting...</span>
+                                )}
+                                {file.extractionStatus === 'failed' && (
+                                    <span className="text-xs text-red-600">Failed</span>
+                                )}
+                            </Button>
+                        ))}
+                    </div>
+                </ScrollArea>
             </div>
 
             {/* Main Content */}
             <div className="flex-1 p-6">
                 <h1 className="text-3xl font-bold mb-6">Downloaded Games</h1>
                 {error && (
-                    <div className="alert alert-error mb-6 rounded-lg shadow-md">
-                        <span>{error}</span>
-                        <button
-                            className="btn btn-sm btn-outline"
-                            onClick={() => setRefreshKey((prev) => prev + 1)}
-                        >
-                            Try Again
-                        </button>
-                    </div>
+                    <Alert variant="destructive" className="mb-6">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="flex items-center justify-between">
+                            <span>{error}</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setRefreshKey((prev) => prev + 1)}
+                            >
+                                Try Again
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
                 )}
                 {files.length === 0 ? (
-                    <div className="alert alert-info rounded-lg">
-                        <span>No downloaded files found. Try downloading some games first.</span>
-                    </div>
+                    <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                            No downloaded files found. Try downloading some games first.
+                        </AlertDescription>
+                    </Alert>
                 ) : (
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -634,34 +667,33 @@ const Games: React.FC = () => {
                             ))}
                         </div>
                         {totalPages > 1 && (
-                            <div className="flex justify-center mt-8">
-                                <div className="join">
-                                    <button
-                                        className="join-item btn btn-sm"
-                                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                        disabled={currentPage === 1}
+                            <div className="flex justify-center mt-8 gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </Button>
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={currentPage === page ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setCurrentPage(page)}
                                     >
-                                        «
-                                    </button>
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                        <button
-                                            key={page}
-                                            className={`join-item btn btn-sm ${
-                                                currentPage === page ? 'btn-active' : ''
-                                            }`}
-                                            onClick={() => setCurrentPage(page)}
-                                        >
-                                            {page}
-                                        </button>
-                                    ))}
-                                    <button
-                                        className="join-item btn btn-sm"
-                                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                        disabled={currentPage === totalPages}
-                                    >
-                                        »
-                                    </button>
-                                </div>
+                                        {page}
+                                    </Button>
+                                ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Next
+                                </Button>
                             </div>
                         )}
                     </>

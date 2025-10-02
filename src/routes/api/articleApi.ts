@@ -1,8 +1,6 @@
 // articleApi.ts
 import { invoke } from "@tauri-apps/api/core";
-import { Article, MultipleArticlesResponse } from "./types";
-
-const API_URL = "https://api.chanomhub.online/api/articles";
+import { Article, MultipleArticlesResponse, ArticleSummary } from "./types";
 
 interface FetchArticlesParams {
     limit?: number;
@@ -29,7 +27,21 @@ export const fetchArticles = async (
             tags: params.tags?.join(","),
             sort: params.sort?.join(","),
         });
-        return { articles, articlesCount: articles.length };
+
+        const articleSummaries: ArticleSummary[] = articles.map(article => ({
+            id: article.id,
+            title: article.title,
+            slug: article.slug,
+            description: article.description,
+            author: article.author,
+            categoryList: article.categoryList,
+            platformList: article.platformList,
+            tagList: article.tagList,
+            mainImage: article.mainImage ?? undefined,
+            createdAt: article.createdAt,
+        }));
+
+        return { articles: articleSummaries, articlesCount: articles.length };
     } catch (error) {
         console.error("Error fetching articles:", error);
         return { articles: [], articlesCount: 0 };

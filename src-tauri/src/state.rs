@@ -108,8 +108,8 @@ pub fn get_config_dir(app: &AppHandle) -> Option<PathBuf> {
 }
 
 pub fn get_default_download_dir(app: &AppHandle) -> Option<String> {
-    let resource_dir = app.path().resource_dir().ok()?;
-    let download_dir = resource_dir.join("downloads");
+    let data_dir = app.path().app_data_dir().ok()?;
+    let download_dir = data_dir.join("downloads");
     if !download_dir.exists() {
         fs::create_dir_all(&download_dir).ok()?;
     }

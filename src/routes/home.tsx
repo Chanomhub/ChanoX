@@ -4,12 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import React, { useState, useEffect } from "react";
 import { Search, X, Filter, AlertCircle, Sparkles, TrendingUp } from "lucide-react";
-import { Game, Category, Tag, Platform, fetchArticles, fetchCategories, fetchTags, fetchPlatforms, Article, ArticleSummary } from "./api";
+import { Category, Tag, Platform, fetchArticles, fetchCategories, fetchTags, fetchPlatforms, ArticleSummary } from "./api";
 import ImageComponent from "../component/ImageComponent";
 import { useNavigate } from "react-router-dom";
 
@@ -29,7 +29,6 @@ const Home: React.FC = () => {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [totalGames, setTotalGames] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [useHybridSearch] = useState(false);
     const [showFilterModal, setShowFilterModal] = useState(false);
 
     // New state for end-of-pages alert

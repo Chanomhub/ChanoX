@@ -3,6 +3,45 @@
 version = 4
 
 [[package]]
+name = "ChanoX"
+version = "0.9.5"
+dependencies = [
+ "chrono",
+ "dirs 5.0.1",
+ "futures-util",
+ "glob",
+ "hex",
+ "ico",
+ "image",
+ "lazy_static",
+ "mega",
+ "regex",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "sevenz-rust",
+ "sha1",
+ "shlex",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tauri-plugin-updater",
+ "tauri-utils",
+ "tokio",
+ "tokio-util",
+ "unrar",
+ "url",
+ "uuid",
+ "wry 0.44.1",
+ "zip",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -683,45 +722,6 @@ name = "cfg_aliases"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
-
-[[package]]
-name = "chanomhub"
-version = "0.9.5"
-dependencies = [
- "chrono",
- "dirs 5.0.1",
- "futures-util",
- "glob",
- "hex",
- "ico",
- "image",
- "lazy_static",
- "mega",
- "regex",
- "reqwest",
- "scraper",
- "serde",
- "serde_json",
- "sevenz-rust",
- "sha1",
- "shlex",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tauri-plugin-updater",
- "tauri-utils",
- "tokio",
- "tokio-util",
- "unrar",
- "url",
- "uuid",
- "wry 0.44.1",
- "zip",
-]
 
 [[package]]
 name = "chrono"

@@ -13,11 +13,11 @@ export interface Author extends Profile {
     id: number;
 }
 
-export interface Tag extends string {}
+export type Tag = string;
 
-export interface Platform extends string {}
+export type Platform = string;
 
-export interface Category extends string {}
+export type Category = string;
 
 export interface Article {
     id: number;
@@ -52,6 +52,7 @@ export interface ArticleSummary {
     author: string | Profile; // Changed to be more flexible
     categoryList: string[];
     platformList: string[];
+    tagList: string[];
     mainImage?: string; // Optional, as it might not always be present in summary
     createdAt?: string; // Optional, as it might not always be present in summary
 }

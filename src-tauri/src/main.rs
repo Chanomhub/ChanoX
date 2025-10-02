@@ -28,6 +28,11 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use std::process::Stdio;
 
+fn sanitize_filename(filename: &str) -> String {
+    let re = regex::Regex::new(r#"[^a-zA-Z0-9._-]"#).unwrap();
+    re.replace_all(filename, "_").to_string()
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {
     #[serde(default)]
@@ -893,223 +898,6 @@ fn set_download_dir(
     Ok(())
 }
 
-fn ensure_webview2_runtime(_app: &tauri::AppHandle) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        let output = StdCommand::new("reg")
-            .args(&["query", "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients"])
-            .output()
-            .map_err(|e| format!("Failed to check WebView2 runtime: {}", e))?;
-
-        if output.status.success() {
-            return Ok(());
-        }
-
-        let mut binary_path = app
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource dir: {}", e))?
-            .join("binaries")
-            .join("Release")
-            .join("WebView2-x86_64-pc-windows-msvc.exe");
-
-        // ตรวจสอบว่าโฟลเดอร์ binaries มีอยู่หรือไม่ หากไม่มีให้สร้างใหม่
-        let binaries_dir = binary_path.parent().unwrap();
-        if !binaries_dir.exists() {
-            fs::create_dir_all(binaries_dir)
-                .map_err(|e| format!("Failed to create binaries directory: {}", e))?;
-        }
-
-        // หากไม่พบไฟล์ติดตั้งในเครื่อง ให้ดาวน์โหลดจาก GitHub
-        if !binary_path.exists() {
-            // กำหนด URL ของไฟล์ติดตั้งบน GitHub
-            let download_url = "https://github.com/MicrosoftEdge/WebView2Installer/raw/main/EDG/WebView2RuntimeInstallerX64.exe";
-            
-            // เรียกใช้ PowerShell เพื่อดาวน์โหลดไฟล์แบบซิงโครนัส
-            let download_result = StdCommand::new("powershell")
-                .args([
-                    "-Command",
-                    &format!("Invoke-WebRequest -Uri {} -OutFile {}", download_url, binary_path.display())
-                ])
-                .output();
-
-            match download_result {
-                Ok(output) => {
-                    if !output.status.success() {
-                        return Err("WebView2 download failed with non-zero exit code".to_string());
-                    }
-                }
-                Err(e) => {
-                    return Err(format!("Failed to start WebView2 download: {}", e));
-                }
-            }
-        }
-
-        // ติดตั้ง WebView2 Runtime
-        let path_str = binary_path.to_str().ok_or("Failed to convert path to string")?;
-        StdCommand::new(path_str)
-            .args(&["/silent", "/install"])
-            .spawn()
-            .map_err(|e| format!("Failed to install WebView2 runtime: {}", e))?;
-        
-        Ok(())
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        Ok(())
-    }
-}
-
-
-#[tauri::command]
-async fn webview2_response(
-    response: serde_json::Value,
-    app: AppHandle,
-    active_downloads: State<'_, RwLock<ActiveDownloads>>,
-) -> Result<(), String> {
-    let download_id = response.get("downloadId").and_then(|id| id.as_str())
-        .ok_or("Missing downloadId in WebView2 response")?;
-
-    let status = response.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
-
-    let mut downloads = active_downloads
-        .write()
-        .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
-
-    let download_started = response.get("downloadStarted").and_then(|s| s.as_bool()).unwrap_or(false);
-
-    if download_started && !downloads.downloads.contains_key(download_id) {
-        let filename = response.get("filename").and_then(|f| f.as_str())
-            .unwrap_or("Unknown file")
-            .to_string();
-
-        downloads.downloads.insert(
-            download_id.to_string(),
-            DownloadInfo {
-                id: download_id.to_string(),
-                filename: filename.clone(),
-                url: "".to_string(),
-                progress: 0.1,
-                status: "downloading".to_string(),
-                downloaded_at: None,
-                path: None,
-                error: None,
-                provider: Some("webview2".to_string()),
-                extracted: true,
-                extracted_path: None,
-                extraction_status: Some("idle".to_string()),
-                extraction_progress: Some(0.0),
-            },
-        );
-
-        app.emit(
-            "download-progress",
-            &serde_json::json!({
-                "id": download_id,
-                "progress": 0.1,
-                "filename": filename
-            }),
-        ).map_err(|e| format!("Failed to emit download progress: {}", e))?;
-    }
-
-    if let Some(download) = downloads.downloads.get_mut(download_id) {
-        match status {
-            "success" => {
-                if let Some(path) = response.get("path").and_then(|p| p.as_str()) {
-                    download.status = "completed".to_string();
-                    download.progress = 100.0;
-                    download.path = Some(path.to_string());
-                    download.downloaded_at = Some(chrono::Utc::now().to_rfc3339());
-
-                    if let Some(filename) = response.get("filename").and_then(|f| f.as_str()) {
-                        download.filename = filename.to_string();
-                    }
-
-                    app.emit(
-                        "download-complete",
-                        &serde_json::json!({
-                            "id": download_id,
-                            "filename": download.filename,
-                            "path": path
-                        }),
-                    ).map_err(|e| format!("Failed to emit download complete: {}", e))?;
-
-                    show_download_notification(
-                        app.clone(),
-                        "Download Complete".to_string(),
-                        format!("Downloaded: {}", download.filename),
-                    ).map_err(|e| format!("Failed to show notification: {}", e))?;
-                } else {
-                    download.status = "downloading".to_string();
-                    if download.progress < 10.0 {
-                        download.progress = 10.0;
-                    }
-                    app.emit(
-                        "download-progress",
-                        &serde_json::json!({
-                            "id": download_id,
-                            "progress": download.progress,
-                        }),
-                    ).map_err(|e| format!("Failed to emit download progress: {}", e))?;
-                }
-            }
-            "error" => {
-                download.status = "failed".to_string();
-                download.error = response.get("message").and_then(|m| m.as_str()).map(|s| s.to_string());
-
-                app.emit(
-                    "download-error",
-                    &serde_json::json!({
-                        "id": download_id,
-                        "error": download.error,
-                    }),
-                ).map_err(|e| format!("Failed to emit download error: {}", e))?;
-
-                show_download_notification(
-                    app.clone(),
-                    "Download Failed".to_string(),
-                    format!("Failed to download: {}", download.filename),
-                ).map_err(|e| format!("Failed to show notification: {}", e))?;
-            }
-            "progress" => {
-                if let Some(progress) = response.get("progress").and_then(|p| p.as_f64()) {
-                    if progress as f32 > download.progress || download_started {
-                        download.progress = progress as f32;
-                        download.status = "downloading".to_string();
-
-                        app.emit(
-                            "download-progress",
-                            &serde_json::json!({
-                                "id": download_id,
-                                "progress": progress,
-                            }),
-                        ).map_err(|e| format!("Failed to emit download progress: {}", e))?;
-                    }
-                }
-            }
-            _ => {
-                download.status = "unknown".to_string();
-                download.error = Some(format!("Unknown status: {}", status));
-                app.emit(
-                    "download-error",
-                    &serde_json::json!({
-                        "id": download_id,
-                        "error": download.error,
-                    }),
-                ).map_err(|e| format!("Failed to emit download error: {}", e))?;
-            }
-        }
-    }
-
-    if matches!(status, "success" | "error") {
-        downloads.tokens.remove(download_id);
-    }
-
-    save_active_downloads_to_file(&app, &downloads)?;
-    Ok(())
-}
-
 
 #[tauri::command]
 fn get_active_downloads(
@@ -1153,63 +941,6 @@ fn open_file(path: String, _app: AppHandle) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-#[tauri::command]
-async fn cancel_active_download(download_id: String, app: AppHandle) -> Result<(), String> {
-    let active_downloads = app.state::<RwLock<ActiveDownloads>>();
-    let mut downloads = active_downloads
-        .write()
-        .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
-
-    if let Some(token) = downloads.tokens.remove(&download_id) {
-        token.cancel();
-        if let Some(download) = downloads.downloads.get_mut(&download_id) {
-            download.status = "cancelled".to_string();
-            download.progress = 0.0;
-            download.error = Some("Download cancelled by user".to_string());
-        }
-
-        let binary_path = app
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource dir: {}", e))?
-            .join("binaries")
-            .join("Release")
-            .join("ConsoleApp2.exe-x86_64-pc-windows-msvc.exe");
-
-        if !binary_path.exists() {
-            return Err("WebView2 binary not found".to_string());
-        }
-
-        let message = serde_json::json!({
-            "action": "cancelDownload",
-            "downloadId": download_id
-        });
-        let message_str = message.to_string();
-
-        app.shell()
-            .command(binary_path.to_str().ok_or("Invalid binary path")?)
-            .arg(&message_str)
-            .spawn()
-            .map_err(|e| format!("Failed to send cancel command: {}", e))?;
-
-        app.emit(
-            "cancel-download",
-            &serde_json::json!({ "download_id": download_id }),
-        ).map_err(|e| format!("Failed to emit cancel download: {}", e))?;
-
-        show_download_notification(
-            app.clone(),
-            "Download Cancelled".to_string(),
-            format!("Download {} was cancelled", download_id),
-        )?;
-
-        save_active_downloads_to_file(&app, &downloads)?;
-        Ok(())
-    } else {
-        Err(format!("No active download found for id: {}", download_id))
-    }
 }
 
 #[tauri::command]
@@ -1320,165 +1051,7 @@ fn get_saved_games(
     Ok(valid_games)
 }
 
-#[tauri::command]
-async fn start_webview2_download(
-    url: String,
-    filename: String,
-    download_id: String,
-    app: AppHandle,
-    active_downloads: State<'_, RwLock<ActiveDownloads>>,
-) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        if let Err(e) = ensure_webview2_runtime(&app) {
-            app.notification()
-                .builder()
-                .title("WebView2 Required")
-                .body("Please install Microsoft WebView2 Runtime to use this feature.")
-                .show()
-                .map_err(|e| format!("Failed to show notification: {}", e))?;
-            return Err(format!("WebView2 runtime not available: {}", e));
-        }
-    }
 
-    let save_folder = get_download_dir(app.clone())?;
-    if !Path::new(&save_folder).exists() {
-        fs::create_dir_all(&save_folder).map_err(|e| format!("Failed to create save folder: {}", e))?;
-    }
-
-    let token = CancellationToken::new();
-    {
-        let mut downloads = active_downloads
-            .write()
-            .map_err(|e| format!("Failed to lock active downloads: {}", e))?;
-        downloads.downloads.insert(
-            download_id.clone(),
-            DownloadInfo {
-                id: download_id.clone(),
-                filename: filename.clone(),
-                url: url.clone(),
-                progress: 0.0,
-                status: "starting".to_string(),
-                path: None,
-                error: None,
-                provider: Some("webview2".to_string()),
-                downloaded_at: None,
-                extracted: false,
-                extracted_path: None,
-                extraction_status: Some("idle".to_string()),
-                extraction_progress: Some(0.0),
-            },
-        );
-        downloads.tokens.insert(download_id.clone(), token.clone());
-        save_active_downloads_to_file(&app, &downloads)?;
-    }
-
-    let message = serde_json::json!({
-        "action": "setDownload",
-        "url": url,
-        "saveFolder": save_folder,
-        "downloadId": download_id,
-        "filename": filename
-    });
-    let message_str = message.to_string();
-
-    let mut binary_path = app
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?
-        .join("binaries")
-        .join("Release")
-        .join("WebView2-x86_64-pc-windows-msvc.exe");
-
-    if !binary_path.exists() {
-        let paths_to_check = vec![PathBuf::from("WebView2-x86_64-pc-windows-msvc.exe")];
-        let mut found = false;
-        for path in paths_to_check {
-            if path.exists() {
-                binary_path = path;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            return Err("WebView2 binary not found in any expected location".to_string());
-        }
-    }
-
-    let (mut rx, _child) = app
-        .shell()
-        .command(binary_path.to_str().ok_or("Invalid binary path")?)
-        .arg(&message_str)
-        .spawn()
-        .map_err(|e| format!("Failed to spawn WebView2 process: {}", e))?;
-
-    let app_clone = app.clone();
-    let download_id_clone = download_id.clone();
-
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(line) => {
-                    let output = String::from_utf8_lossy(&line).to_string();
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
-                        let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                        let _ = webview2_response(json, app_clone.clone(), active_downloads).await;
-                    }
-                }
-                CommandEvent::Stderr(line) => {
-                    let output = String::from_utf8_lossy(&line).to_string();
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output) {
-                        let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                        let _ = webview2_response(json, app_clone.clone(), active_downloads).await;
-                    }
-                }
-                CommandEvent::Error(e) => {
-                    let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                    let error_json = serde_json::json!({
-                        "status": "error",
-                        "message": format!("WebView2 process error: {}", e),
-                        "downloadId": download_id_clone
-                    });
-                    let _ = webview2_response(error_json, app_clone.clone(), active_downloads).await;
-                }
-                CommandEvent::Terminated(code) => {
-                    if code.code != Some(0) {
-                        let should_report_error = {
-                            let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                            active_downloads.read().map(|downloads| {
-                                downloads.downloads.get(&download_id_clone)
-                                    .map(|download| download.status != "completed" && download.status != "failed")
-                                    .unwrap_or(false)
-                            }).unwrap_or(false)
-                        };
-
-                        if should_report_error {
-                            let error_json = serde_json::json!({
-                                "status": "error",
-                                "message": format!("WebView2 process terminated unexpectedly with code: {:?}", code),
-                                "downloadId": download_id_clone
-                            });
-                            let active_downloads = app_clone.state::<RwLock<ActiveDownloads>>();
-                            let _ = webview2_response(error_json, app_clone.clone(), active_downloads).await;
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-    });
-
-    app.emit(
-        "start-webview2-download",
-        &serde_json::json!({
-            "url": url,
-            "filename": filename,
-            "downloadId": download_id
-        }),
-    ).map_err(|e| format!("Failed to emit start webview2 download: {}", e))?;
-
-    Ok(())
-}
 
 #[tauri::command]
 async fn install_plugin(
@@ -1487,64 +1060,7 @@ async fn install_plugin(
     active_downloads: State<'_, RwLock<ActiveDownloads>>,
     registry: State<'_, Mutex<PluginRegistry>>,
 ) -> Result<(), String> {
-    let plugins_path = get_plugins_path(&app)?;
-    fs::create_dir_all(&plugins_path).map_err(|e| format!("Failed to create plugins dir: {}", e))?;
-
-    if let Some(url) = &manifest.download_url {
-        let download_id = Uuid::new_v4().to_string();
-        let filename = manifest
-            .entry_point
-            .split('/')
-            .last()
-            .unwrap_or(&manifest.id)
-            .to_string();
-
-        start_webview2_download(url.clone(), filename.clone(), download_id.clone(), app.clone(), active_downloads.clone()).await?;
-
-        let mut download_complete = false;
-        let mut download_path = None;
-        for _ in 0..60 {
-            {
-                let downloads = active_downloads.read().map_err(|e| format!("Failed to read downloads: {}", e))?;
-                if let Some(download) = downloads.downloads.get(&download_id) {
-                    if download.status == "completed" {
-                        download_complete = true;
-                        download_path = download.path.clone();
-                        break;
-                    } else if download.status == "failed" {
-                        return Err(download.error.clone().unwrap_or("Download failed".to_string()));
-                    }
-                }
-            }
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        }
-
-        if !download_complete {
-            return Err("Download timed out".to_string());
-        }
-
-        if let Some(path) = download_path {
-            let dest_path = plugins_path.join(&filename);
-            fs::rename(&path, &dest_path).map_err(|e| format!("Failed to move file: {}", e))?;
-        }
-    }
-
-    let manifest_path = plugins_path.join(format!("{}.json", manifest.id));
-    let manifest_json = serde_json::to_string_pretty(&manifest)
-        .map_err(|e| format!("Failed to serialize manifest: {}", e))?;
-    fs::write(&manifest_path, manifest_json).map_err(|e| format!("Failed to write manifest: {}", e))?;
-
-    let mut registry = registry.lock().map_err(|e| format!("Failed to lock registry: {}", e))?;
-    registry.load_plugins(plugins_path.to_str().ok_or("Invalid plugins path")?)?;
-
-    app.notification()
-        .builder()
-        .title("Plugin Installed")
-        .body(format!("Plugin {} installed successfully", manifest.name))
-        .show()
-        .map_err(|e| format!("Failed to show notification: {}", e))?;
-
-    Ok(())
+    todo!()
 }
 
 #[tauri::command]
@@ -1635,7 +1151,6 @@ fn main() {
             verify_config_exists,
             show_download_notification,
             open_directory,
-            cancel_active_download,
             get_active_downloads,
             open_file,
             remove_file,
@@ -1644,8 +1159,6 @@ fn main() {
             save_games,
             get_saved_games,
             register_manual_download,
-            start_webview2_download,
-            webview2_response,
             is_directory,
             select_game_executable,
             launch_game,

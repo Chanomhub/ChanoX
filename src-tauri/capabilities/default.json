@@ -9,7 +9,6 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "core:default",
     "shell:default",
     "dialog:allow-ask",
     "dialog:allow-message",
@@ -18,12 +17,6 @@
     "updater:allow-download-and-install",
     "notification:allow-is-permission-granted",
     "notification:default",
-    "fs:allow-write-file",
-    "fs:allow-read-file",
-    {
-      "identifier": "fs:scope",
-      "allow": ["**", "$DOWNLOADS/**"]
-    }
-
+    "fs:allow-copy-file"
   ]
 }
