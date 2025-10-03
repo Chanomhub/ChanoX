@@ -105,25 +105,25 @@ jobs:
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
         run: bun run tauri:build:mac:x64
 
-      # Upload เฉพาะไฟล์ที่ต้องการ แทนที่จะ upload ทั้ง folder
+      # Upload เฉพาะไฟล์ installer (ไม่รวม build scripts)
       - name: Prepare artifacts
         shell: bash
         run: |
           mkdir -p upload_artifacts
           
-          # Linux - ใช้ path เต็ม
+          # Linux 
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
+            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
           fi
           
-          # Windows - ใช้ path เต็ม
+          # Windows
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            find src-tauri/target -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} upload_artifacts/ \; 2>/dev/null || true
+             find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" -exec cp {} upload_artifacts/ \; 2>/dev/null || true
           fi
           
-          # macOS - ใช้ path เต็ม
+          # macOS
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            find src-tauri/target -type f \( -name "*.dmg" -o -name "*.app.tar.gz" \) -exec cp {} upload_artifacts/ \;
+            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" -exec cp {} upload_artifacts/ \;
           fi
 
       - name: Upload build artifact
