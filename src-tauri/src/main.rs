@@ -19,11 +19,13 @@ use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::process::{Command as StdCommand, Command};
 use std::sync::{Mutex, RwLock};
-use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_notification::NotificationExt;
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
+use tauri::{
+  AppHandle, CustomMenuItem, Manager, Menu, MenuItem, Submenu, SystemTray, SystemTrayEvent,
+  SystemTrayMenu, SystemTrayMenuItem, WindowBuilder, Wry,
+};
+use std::fs::File;
+use ico::IconDir;
+use image::DynamicImage;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use std::process::Stdio;
@@ -1055,10 +1057,10 @@ fn get_saved_games(
 
 #[tauri::command]
 async fn install_plugin(
-    manifest: PluginManifest,
-    app: AppHandle,
-    active_downloads: State<'_, RwLock<ActiveDownloads>>,
-    registry: State<'_, Mutex<PluginRegistry>>,
+    _manifest: PluginManifest,
+    _app: AppHandle,
+    _active_downloads: State<'_, RwLock<ActiveDownloads>>,
+    _registry: State<'_, Mutex<PluginRegistry>>,
 ) -> Result<(), String> {
     todo!()
 }
