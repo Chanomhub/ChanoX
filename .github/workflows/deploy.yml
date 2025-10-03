@@ -81,7 +81,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-${{ matrix.os }}-${{ matrix.arch }}
+          name: ChanoX-${{ matrix.os }}-${{ matrix.arch }}
           path: src-tauri/target/**/release/bundle/
 
   release:
@@ -92,25 +92,25 @@ jobs:
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tauri-ubuntu-latest-x64
+          name: ChanoX-ubuntu-latest-x64
           path: release_files/linux
 
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tauri-windows-latest-x64
+          name: ChanoX-windows-latest-x64
           path: release_files/windows
 
       - name: Download macOS x64 Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tauri-macos-latest-x64
+          name: ChanoX-macos-latest-x64
           path: release_files/macos-x64
 
       - name: Download macOS ARM Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tauri-macos-latest-arm64
+          name: ChanoX-macos-latest-arm64
           path: release_files/macos-arm64
 
       # Set release name dynamically for Nightly / Preview
