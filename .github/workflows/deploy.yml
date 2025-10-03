@@ -1,6 +1,12 @@
-name: Build App
+name: Build & Release Tauri App
 
-# เพิ่ม job สำหรับ release หลังจาก build
+on:
+  push:
+    tags:
+      - "v*"           # Stable release
+      - "nightly-*"    # Nightly release
+  workflow_dispatch:   # กดรันเองได้
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -12,6 +18,7 @@ jobs:
         include:
           - os: macos-latest
             arch: arm64
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,15 +26,30 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
 
+      # ติดตั้ง dependencies เฉพาะ Linux
       - name: Install Linux Dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev libpango1.0-dev libcairo2-dev libatk1.0-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libwebkit2gtk-4.1-dev 
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev \
+            libatk1.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev 
 
       - name: Install dependencies
         run: bun install
 
+      # สร้าง resource folder
       - name: Ensure resources exist (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
@@ -41,6 +63,7 @@ jobs:
           if (!(Test-Path "src-tauri/binaries")) { New-Item -ItemType Directory -Path "src-tauri/binaries" }
         shell: pwsh
 
+      # Build per OS/Arch
       - name: Build Linux App
         if: matrix.os == 'ubuntu-latest'
         run: bun run tauri:build:linux:x64
@@ -57,6 +80,7 @@ jobs:
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
         run: bun run tauri:build:mac:x64
 
+      # Upload artifact
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -67,23 +91,49 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download build artifacts
+      # Download all build artifacts
+      - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
           name: tauri-ubuntu-latest-x64
-          path: release_files
+          path: release_files/linux
 
-      - name: Create GitHub Release
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tauri-windows-latest-x64
+          path: release_files/windows
+
+      - name: Download macOS x64 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tauri-macos-latest-x64
+          path: release_files/macos-x64
+
+      - name: Download macOS ARM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tauri-macos-latest-arm64
+          path: release_files/macos-arm64
+
+      # Create GitHub Release
+      - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload release assets
+      # Upload all assets
+      - name: Upload all release assets
         uses: softprops/action-gh-release@v1
         with:
-          files: release_files/**
+          files: |
+            release_files/linux/**
+            release_files/windows/**
+            release_files/macos-x64/**
+            release_files/macos-arm64/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
