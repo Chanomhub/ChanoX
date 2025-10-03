@@ -26,6 +26,9 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
+use std::fs::File;
+use ico::IconDir;
+use image::DynamicImage;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use std::process::Stdio;
