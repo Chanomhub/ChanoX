@@ -111,19 +111,19 @@ jobs:
         run: |
           mkdir -p upload_artifacts
           
-          # Linux
+          # Linux - ใช้ path เต็ม
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
+            find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
           fi
           
-          # Windows
+          # Windows - ใช้ path เต็ม
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            find src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} upload_artifacts/ \; 2>/dev/null || true
+            find src-tauri/target -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} upload_artifacts/ \; 2>/dev/null || true
           fi
           
-          # macOS
+          # macOS - ใช้ path เต็ม
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" \) -exec cp {} upload_artifacts/ \;
+            find src-tauri/target -type f \( -name "*.dmg" -o -name "*.app.tar.gz" \) -exec cp {} upload_artifacts/ \;
           fi
 
       - name: Upload build artifact
