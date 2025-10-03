@@ -3,10 +3,10 @@ name: Build & Release Tauri App
 on:
   push:
     tags:
-      - "v*"           # Stable release
+      - "v*"
     branches:
-      - main           # Nightly / Preview
-  workflow_dispatch:   # กดรันเองได้
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -24,8 +24,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Cache Bun dependencies
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      # Cache Rust dependencies
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
       - name: Install Linux Dependencies
         if: matrix.os == 'ubuntu-latest'
@@ -44,10 +71,10 @@ jobs:
             librsvg2-dev \
             patchelf \
             libsoup-3.0-dev \
-            libwebkit2gtk-4.1-dev 
+            libwebkit2gtk-4.1-dev
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Ensure resources exist (Linux/macOS)
         if: matrix.os != 'windows-latest'
@@ -78,47 +105,47 @@ jobs:
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
         run: bun run tauri:build:mac:x64
 
+      # Upload เฉพาะไฟล์ที่ต้องการ แทนที่จะ upload ทั้ง folder
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          mkdir -p upload_artifacts
+          
+          # Linux
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
+          fi
+          
+          # Windows
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            find src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} upload_artifacts/ \; 2>/dev/null || true
+          fi
+          
+          # macOS
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" \) -exec cp {} upload_artifacts/ \;
+          fi
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChanoX-${{ matrix.os }}-${{ matrix.arch }}
-          path: src-tauri/target/**/release/bundle/
+          path: upload_artifacts/*
+          retention-days: 1  # เก็บแค่ 1 วัน เพราะจะ release ทันที
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      # Download all build artifacts
-      - name: Download Linux Artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ChanoX-ubuntu-latest-x64
-          path: release_files/linux
+          path: release_files
 
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ChanoX-windows-latest-x64
-          path: release_files/windows
-
-      - name: Download macOS x64 Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ChanoX-macos-latest-x64
-          path: release_files/macos-x64
-
-      - name: Download macOS ARM Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ChanoX-macos-latest-arm64
-          path: release_files/macos-arm64
-
-      # Set release name dynamically for Nightly / Preview
       - name: Set Release Name
         if: startsWith(github.ref, 'refs/heads/main')
         run: echo "RELEASE_NAME=nightly-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
 
-      # For Stable, use tag name; for Nightly, use RELEASE_NAME
       - name: Determine tag/release name
         id: release_name
         run: |
@@ -128,24 +155,13 @@ jobs:
             echo "NAME=${RELEASE_NAME}" >> $GITHUB_ENV
           fi
 
-      # Create GitHub Release
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NAME }}
           name: ${{ env.NAME }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Upload all assets
-      - name: Upload all release assets
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            release_files/linux/**
-            release_files/windows/**
-            release_files/macos-x64/**
-            release_files/macos-arm64/**
+          files: release_files/**/*
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
