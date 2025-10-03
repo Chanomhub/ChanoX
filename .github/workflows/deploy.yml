@@ -202,7 +202,7 @@ jobs:
           - **Linux**: \`.deb\` package or \`.AppImage\`
           "
           
-          # บันทึกเป็น multiline output
+         
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

@@ -1,33 +1,16 @@
-import  {
-    createContext,
-    useState,
-    useEffect,
-    useContext,
-    ReactNode,
-} from "react";
+import { createContext, useContext, ReactNode } from "react";
 
 interface SettingsContextInterface {
-    theme: string;
-    setTheme: (theme: string) => void;
+    // Placeholder for future settings
 }
 
-export const SettingsContext = createContext<SettingsContextInterface>({
-    theme: localStorage.getItem("theme") || "dark",
-    setTheme: () => {},
-});
+export const SettingsContext = createContext<SettingsContextInterface>({});
 
 export const useSettingsContext = () => useContext(SettingsContext);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-    const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
-
-    useEffect(() => {
-        document.body.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
-    }, [theme]);
-
     return (
-        <SettingsContext.Provider value={{ theme, setTheme }}>
+        <SettingsContext.Provider value={{}}>
             {children}
         </SettingsContext.Provider>
     );

@@ -1,32 +1,19 @@
 import { useEffect, useState } from "react";
-import clsx from "clsx";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
-import themes from "../utils/themes";
-import { useSettingsContext } from "../context/SettingsProvider";
 import { IconRefresh } from "@tabler/icons-react";
-import { CloudinaryConfig } from "./types/types";
 
 
 const LOCAL_STORAGE_KEYS = {
     TOKEN: 'chanomhub_token',
-    CLOUDINARY: 'chanomhub_cloudinary',
-    DOWNLOAD_DIR: 'chanomhub_download_dir',
-    THEME: 'chanomhub_theme'
+    DOWNLOAD_DIR: 'chanomhub_download_dir'
 };
 
 export default function Settings() {
-    const { setTheme, theme: currentTheme } = useSettingsContext();
-
     // State
     const [token, setToken] = useState("");
-    const [cloudinaryConfig, setCloudinaryConfig] = useState<CloudinaryConfig>({
-        cloud_name: "",
-        api_key: "",
-        api_secret: "",
-    });
     const [downloadDir, setDownloadDir] = useState("");
     const [statusMessage, setStatusMessage] = useState("");
     const [isError, setIsError] = useState(false);
@@ -75,19 +62,9 @@ export default function Settings() {
             const storedToken = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN);
             if (storedToken) setToken(storedToken);
 
-            // Load Cloudinary config
-            const storedCloudinary = localStorage.getItem(LOCAL_STORAGE_KEYS.CLOUDINARY);
-            if (storedCloudinary) {
-                setCloudinaryConfig(JSON.parse(storedCloudinary) as CloudinaryConfig);
-            }
-
             // Load download directory
             const storedDownloadDir = localStorage.getItem(LOCAL_STORAGE_KEYS.DOWNLOAD_DIR);
             if (storedDownloadDir) setDownloadDir(storedDownloadDir);
-
-            // Load theme
-            const storedTheme = localStorage.getItem(LOCAL_STORAGE_KEYS.THEME);
-            if (storedTheme) setTheme(storedTheme);
 
             console.log("Settings loaded from localStorage successfully");
         } catch (err) {
@@ -104,18 +81,6 @@ export default function Settings() {
             if (typeof retrievedToken === "string") {
                 setToken(retrievedToken);
                 localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, retrievedToken);
-            }
-
-            // Load Cloudinary config
-            const config = await invoke("get_cloudinary_config") as CloudinaryConfig;
-            if (config) {
-                const cloudConfig: CloudinaryConfig = {
-                    cloud_name: config.cloud_name || "",
-                    api_key: config.api_key || "",
-                    api_secret: config.api_secret || "",
-                };
-                setCloudinaryConfig(cloudConfig);
-                localStorage.setItem(LOCAL_STORAGE_KEYS.CLOUDINARY, JSON.stringify(cloudConfig));
             }
         } catch (err) {
             console.error("Failed to load settings:", err);
@@ -154,32 +119,7 @@ export default function Settings() {
         }
     };
 
-    const handleCloudinaryChange = async (field: keyof CloudinaryConfig, value: string) => {
-        const newConfig = { ...cloudinaryConfig, [field]: value };
-        setCloudinaryConfig(newConfig);
-        localStorage.setItem(LOCAL_STORAGE_KEYS.CLOUDINARY, JSON.stringify(newConfig));
 
-        if (isTauriAvailable) {
-            try {
-                await invoke("set_cloudinary_config", {
-                    cloudName: newConfig.cloud_name,
-                    apiKey: newConfig.api_key,
-                    apiSecret: newConfig.api_secret,
-                });
-                showStatus(`Cloudinary ${field} updated successfully`);
-            } catch (err) {
-                console.error("Failed to set Cloudinary config:", err);
-                showStatus(`Failed to save Cloudinary settings to Tauri backend: ${err}`, true);
-            }
-        } else {
-            showStatus(`Cloudinary ${field} updated successfully in browser storage`);
-        }
-    };
-
-    const handleThemeChange = (theme: string) => {
-        setTheme(theme);
-        localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, theme);
-    };
 
     // Check for app updates
     async function checkForAppUpdates() {
@@ -244,47 +184,16 @@ export default function Settings() {
         }
     };
 
-    const verifyCloudinaryConfig = async () => {
-        if (isTauriAvailable) {
-            try {
-                const config = await invoke("get_cloudinary_config") as CloudinaryConfig;
 
-                if (config) {
-                    const configStr = JSON.stringify(config, null, 2);
-                    showStatus(`Configuration verified: ${configStr}`);
-                } else {
-                    showStatus("Config empty or invalid", true);
-                }
-            } catch (err) {
-                showStatus(`Failed to verify configuration: ${err}`, true);
-            }
-        } else {
-            const storedConfig = localStorage.getItem(LOCAL_STORAGE_KEYS.CLOUDINARY);
-            if (storedConfig) {
-                showStatus(`Browser configuration: ${storedConfig}`);
-            } else {
-                showStatus("No Cloudinary configuration found in browser storage", true);
-            }
-        }
-    };
 
     const saveAllSettings = async () => {
         // Save all to localStorage first
         localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, token);
-        localStorage.setItem(LOCAL_STORAGE_KEYS.CLOUDINARY, JSON.stringify(cloudinaryConfig));
         localStorage.setItem(LOCAL_STORAGE_KEYS.DOWNLOAD_DIR, downloadDir);
-        localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, currentTheme);
 
         if (isTauriAvailable) {
             try {
-                await invoke("save_all_settings", {
-                    token,
-                    cloudinaryConfig: {
-                        cloud_name: cloudinaryConfig.cloud_name,
-                        api_key: cloudinaryConfig.api_key,
-                        api_secret: cloudinaryConfig.api_secret,
-                    },
-                });
+                await invoke("save_all_settings", { token });
                 showStatus("All settings saved successfully");
             } catch (err) {
                 showStatus(`Failed to save all settings to Tauri backend: ${err}`, true);
@@ -320,7 +229,7 @@ export default function Settings() {
     // UI Components
     const renderStatusAlert = () => (
         statusMessage && (
-            <div className={`alert ${isError ? 'alert-error' : 'alert-success'} mb-4`}>
+            <div className={`p-4 rounded-lg mb-4 ${isError ? 'bg-red-900/50 border border-red-500 text-red-200' : 'bg-green-900/50 border border-green-500 text-green-200'}`}>
                 <span>{statusMessage}</span>
             </div>
         )
@@ -328,86 +237,27 @@ export default function Settings() {
 
     const renderBrowserModeWarning = () => (
         !isTauriAvailable && (
-            <div className="alert alert-warning mb-4">
+            <div className="p-4 rounded-lg mb-4 bg-yellow-900/50 border border-yellow-500 text-yellow-200">
                 <span>Running in browser mode. Settings will be saved to browser storage only.</span>
             </div>
         )
     );
 
-    const renderThemeSelector = () => (
-        <div className="dropdown">
-            <label tabIndex={0} className="btn m-1">
-                Choose Theme
-            </label>
-            <ul
-                tabIndex={0}
-                className="dropdown-content z-[1] p-2 shadow bg-base-100 rounded-box max-h-60 w-52 overflow-y-scroll"
-            >
-                {themes.map((theme) => (
-                    <li
-                        key={theme}
-                        className={clsx("hover:bg-primary-focus w-full p-2 rounded-md", {
-                            "bg-secondary-focus": theme === currentTheme,
-                        })}
-                        onClick={() => handleThemeChange(theme)}
-                    >
-                        {theme}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
 
-    const renderCloudinaryFields = () => (
-        <>
-            <div className="divider">Cloudinary Configuration</div>
-
-            <div>
-                <label className="block text-sm font-medium">Cloudinary Cloud Name</label>
-                <input
-                    type="text"
-                    value={cloudinaryConfig.cloud_name}
-                    onChange={(e) => handleCloudinaryChange("cloud_name", e.target.value)}
-                    className="input input-bordered w-full max-w-xs"
-                    placeholder="Enter Cloudinary cloud name"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium">Cloudinary API Key</label>
-                <input
-                    type="text"
-                    value={cloudinaryConfig.api_key}
-                    onChange={(e) => handleCloudinaryChange("api_key", e.target.value)}
-                    className="input input-bordered w-full max-w-xs"
-                    placeholder="Enter Cloudinary API key"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium">Cloudinary API Secret</label>
-                <input
-                    type="password"
-                    value={cloudinaryConfig.api_secret}
-                    onChange={(e) => handleCloudinaryChange("api_secret", e.target.value)}
-                    className="input input-bordered w-full max-w-xs"
-                    placeholder="Enter Cloudinary API secret"
-                />
-            </div>
-        </>
-    );
 
     const renderApplicationUpdate = () => (
         <>
-            <div className="divider">Application Update</div>
+            <div className="border-t border-gray-700 pt-4 mt-4">
+                <h3 className="text-lg font-medium text-gray-200 mb-2">Application Update</h3>
+            </div>
             <div>
-                <label className="block text-sm font-medium">Check for Updates</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Check for Updates</label>
                 <button
-                    className={`btn btn-outline ${!isTauriAvailable ? 'btn-disabled' : ''} flex items-center gap-2`}
+                    className={`px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 ${!isTauriAvailable || isCheckingUpdate ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500'}`}
                     onClick={checkForAppUpdates}
-                    disabled={isCheckingUpdate}
+                    disabled={isCheckingUpdate || !isTauriAvailable}
                 >
-                    <IconRefresh className="w-5 h-5" />
+                    <IconRefresh className={`w-5 h-5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
                     {isCheckingUpdate ? "Checking..." : "Check for Updates"}
                 </button>
             </div>
@@ -416,20 +266,23 @@ export default function Settings() {
 
     const renderDownloadDirectory = () => (
         <>
-            <div className="divider">Download Directory</div>
+            <div className="border-t border-gray-700 pt-4 mt-4">
+                <h3 className="text-lg font-medium text-gray-200 mb-2">Download Directory</h3>
+            </div>
             <div>
-                <label className="block text-sm font-medium">Download Directory</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Download Directory</label>
                 <div className="flex gap-2">
                     <input
                         type="text"
                         value={downloadDir}
                         readOnly
-                        className="input input-bordered w-full max-w-xs"
+                        className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Download directory"
                     />
                     <button
-                        className={`btn btn-outline ${!isTauriAvailable ? 'btn-disabled' : ''}`}
+                        className={`px-4 py-2 rounded-lg border transition-colors ${!isTauriAvailable ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500'}`}
                         onClick={selectDownloadDir}
+                        disabled={!isTauriAvailable}
                     >
                         Select Directory
                     </button>
@@ -439,16 +292,9 @@ export default function Settings() {
     );
 
     const renderActionButtons = () => (
-        <div className="flex mt-4 gap-4">
+        <div className="flex mt-6 gap-4">
             <button
-                className="btn btn-primary"
-                onClick={verifyCloudinaryConfig}
-            >
-                Verify Configuration
-            </button>
-
-            <button
-                className="btn btn-success"
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
                 onClick={saveAllSettings}
             >
                 Save All Settings
@@ -458,22 +304,21 @@ export default function Settings() {
 
     // Main Render
     return (
-        <div className="flex flex-col h-full w-full p-6">
+        <div className="flex flex-col h-full w-full p-6 bg-gray-900 text-white">
             {renderStatusAlert()}
             {renderBrowserModeWarning()}
 
             {isLoading ? (
                 <div className="flex justify-center items-center h-32">
-                    <span className="loading loading-spinner loading-lg"></span>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 </div>
             ) : (
                 <>
                     <div className="flex flex-row mb-6">
-                        {renderThemeSelector()}
-
                         <button
-                            className={`btn btn-outline ml-4 ${!isTauriAvailable ? 'btn-disabled' : ''}`}
+                            className={`px-4 py-2 rounded-lg border transition-colors ${!isTauriAvailable ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500'}`}
                             onClick={testConnection}
+                            disabled={!isTauriAvailable}
                         >
                             Test Connection
                         </button>
@@ -481,17 +326,16 @@ export default function Settings() {
 
                     <div className="flex flex-col gap-4">
                         <div>
-                            <label className="block text-sm font-medium">Token</label>
+                            <label className="block text-sm font-medium text-gray-300">Token</label>
                             <input
                                 type="text"
                                 value={token}
                                 onChange={(e) => handleTokenChange(e.target.value)}
-                                className="input input-bordered w-full max-w-xs"
+                                className="input input-bordered w-full max-w-xs bg-gray-800 border-gray-600 text-white"
                                 placeholder="Enter token"
                             />
                         </div>
 
-                        {renderCloudinaryFields()}
                         {renderApplicationUpdate()}
                         {renderDownloadDirectory()}
                         {renderActionButtons()}

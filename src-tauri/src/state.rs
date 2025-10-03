@@ -5,17 +5,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct CloudinaryConfig {
-    pub cloud_name: String,
-    pub api_key: String,
-    pub api_secret: String,
-}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppState {
     pub token: Option<String>,
-    pub cloudinary: Option<CloudinaryConfig>,
     pub download_dir: Option<String>,
     pub games: Option<Vec<DownloadedGameInfo>>,
 }
@@ -46,7 +40,6 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             token: None,
-            cloudinary: None,
             download_dir: None,
             games: None,
         }

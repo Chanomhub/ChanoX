@@ -1,5 +1,7 @@
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use crate::types::{PluginFunction, PluginManifest, PluginRegistry};
+use crate::utils::{find_external_binary, get_plugins_path, strip_ansi_codes};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -8,52 +10,13 @@ use std::process::{Command, Stdio};
 use tokio_util::sync::CancellationToken;
 use tauri::Manager;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum PluginFunction {
-    Download,
-    Translate,
-    Emulation,
-    Custom(String),
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginManifest {
-    pub id: String,
-    pub name: String,
-    pub version: String,
-    pub supported_hosts: Vec<String>,
-    pub entry_point: String,
-    #[serde(rename = "type")]
-    pub plugin_type: String,
-    pub plugin_function: PluginFunction,
-    #[serde(default)]
-    pub external_binary: bool,
-    #[serde(default)]
-    pub language: Option<String>,
-    #[serde(default)]
-    pub successful: Option<String>,
-    #[serde(default)]
-    pub install_instruction: Option<String>,
-    #[serde(default)]
-    pub supported_actions: Vec<String>,
-    #[serde(skip)]
-    pub binary_path: Option<PathBuf>,
-}
 
-pub struct PluginRegistry {
-    plugins: HashMap<String, PluginManifest>,
-}
+
 
 impl PluginRegistry {
-    pub fn new() -> Self {
-        PluginRegistry {
-            plugins: HashMap::new(),
-        }
-    }
-
     pub fn load_plugins(&mut self, path: &str) -> Result<(), String> {
-        let dir = fs::read_dir(path).map_err(|e| format!("Failed to read plugins directory: {}", e))?;
+        let dir = std::fs::read_dir(path).map_err(|e| format!("Failed to read plugins directory: {}", e))?;
         let mut errors = Vec::new();
 
         for entry in dir {
@@ -67,10 +30,13 @@ impl PluginRegistry {
             let file_path = entry.path();
             if file_path.extension().map_or(false, |ext| ext == "json") {
                 println!("Processing plugin file: {:?}", file_path);
-                match fs::read_to_string(&file_path) {
+                match std::fs::read_to_string(&file_path) {
                     Ok(content) => {
                         match serde_json::from_str::<PluginManifest>(&content) {
                             Ok(mut manifest) => {
+                                if manifest.category.is_empty() {
+                                    manifest.category = "optional".to_string();
+                                }
                                 if manifest.plugin_type == "script" {
                                     if manifest.external_binary {
                                         let program = manifest
@@ -106,7 +72,7 @@ impl PluginRegistry {
                                             .split_whitespace()
                                             .next()
                                             .unwrap_or(&manifest.entry_point);
-                                        let script_path = Path::new(path).join(program);
+                                        let script_path = std::path::Path::new(path).join(program);
                                         if !script_path.exists() {
                                             errors.push(format!(
                                                 "Script file {} not found for plugin {}",
@@ -150,51 +116,6 @@ impl PluginRegistry {
             println!("All plugins loaded successfully.");
         }
         Ok(())
-    }
-
-    pub fn register_plugin(&mut self, manifest: PluginManifest) {
-        println!("Registering plugin: {}", manifest.id);
-        self.plugins.insert(manifest.id.clone(), manifest);
-    }
-
-    pub fn find_plugins_by_function(&self, function: PluginFunction) -> Vec<&PluginManifest> {
-        self.plugins
-            .values()
-            .filter(|manifest| manifest.plugin_function == function)
-            .collect()
-    }
-
-    pub fn find_plugin_for_action(&self, action: &str, host: Option<&str>) -> Option<&PluginManifest> {
-        self.plugins
-            .values()
-            .find(|manifest| {
-                manifest.supported_actions.contains(&action.to_string()) &&
-                host.map_or(true, |h| {
-                    manifest.supported_hosts.iter().any(|supported| {
-                        if supported.starts_with("*.") {
-                            h.to_lowercase().ends_with(&supported[1..].to_lowercase())
-                        } else {
-                            supported.to_lowercase() == h.to_lowercase()
-                        }
-                    })
-                })
-            })
-    }
-
-    pub fn get_plugin_ids(&self) -> Vec<&String> {
-        self.plugins.keys().collect()
-    }
-
-    pub fn get_plugin(&self, plugin_id: &str) -> Option<&PluginManifest> {
-        self.plugins.get(plugin_id)
-    }
-
-    pub fn get_all_plugins(&self) -> &HashMap<String, PluginManifest> {
-        &self.plugins
-    }
-
-    pub fn remove_plugin(&mut self, plugin_id: &str) {
-        self.plugins.remove(plugin_id);
     }
 
     pub fn print_registered_plugins(&self) {
@@ -290,104 +211,3 @@ pub async fn execute_plugin<T: DeserializeOwned>(
     }
 }
 
-fn strip_ansi_codes(input: &str) -> String {
-    let re = regex::Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
-    re.replace_all(input, "").to_string()
-}
-
-fn get_plugins_path(_app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    #[cfg(debug_assertions)]
-    {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let plugins_path = PathBuf::from(manifest_dir).join("plugins");
-        println!("Debug plugins path: {}", plugins_path.display());
-        if !plugins_path.exists() {
-            return Err(format!(
-                "Plugins directory {} does not exist",
-                plugins_path.display()
-            ));
-        }
-        Ok(plugins_path)
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let path = _app
-            .path()
-            .resource_dir()
-            .map_err(|_| "Cannot resolve resource directory".to_string())?
-            .join("plugins");
-
-        println!("Production plugins path: {}", path.display());
-        if !path.exists() {
-            return Err(format!(
-                "Plugins directory {} does not exist",
-                path.display()
-            ));
-        }
-        Ok(path)
-    }
-}
-
-fn find_external_binary(program: &str, language: Option<&str>) -> Result<PathBuf, String> {
-    let install_instructions = match language {
-        Some(lang) => match lang.to_lowercase().as_str() {
-            "rust" => Some("Please install Rust via rustup (https://rustup.rs/) or install the required binary with 'cargo install <package>'"),
-            "go" => Some("Please install Go (https://golang.org/doc/install)"),
-            "python" => Some("Please install Python (https://www.python.org/downloads/)"),
-            "node" => Some("Please install Node.js (https://nodejs.org/)"),
-            _ => None,
-        },
-        None => None,
-    };
-
-    if let Some(lang) = language {
-        let home_dir = dirs::home_dir().ok_or("Cannot find home directory")?;
-        let binary_path = match lang.to_lowercase().as_str() {
-            "rust" => home_dir.join(".cargo").join("bin").join(program),
-            "go" => home_dir.join("go").join("bin").join(program),
-            "python" => home_dir.join(".local").join("bin").join(program),
-            "bash" => PathBuf::from(program),
-            "node" => home_dir.join(".nvm").join("versions").join("node").join("*").join("bin").join(program),
-            _ => return Err(format!("Unsupported language: {}. {}", lang, install_instructions.unwrap_or(""))),
-        };
-
-        if lang.to_lowercase() == "node" {
-            if let Ok(entries) = glob::glob(binary_path.to_str().ok_or("Invalid glob pattern")?) {
-                for entry in entries.flatten() {
-                    if entry.exists() {
-                        return Ok(entry);
-                    }
-                }
-            }
-        } else if binary_path.exists() {
-            return Ok(binary_path);
-        }
-    }
-
-    let path_result = if cfg!(target_os = "windows") {
-        Command::new("where").arg(program).output()
-    } else {
-        Command::new("which").arg(program).output()
-    };
-
-    match path_result {
-        Ok(output) if output.status.success() => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if let Some(path) = stdout.lines().next().map(PathBuf::from) {
-                if path.exists() {
-                    return Ok(path);
-                }
-            }
-        }
-        _ => {}
-    }
-
-    let error_msg = format!(
-        "Binary '{}' not found in {} or PATH. {}",
-        program,
-        language.unwrap_or("any language-specific directory"),
-        install_instructions.unwrap_or("")
-    );
-    Err(error_msg)
-}

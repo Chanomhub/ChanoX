@@ -93,25 +93,25 @@ const PluginManager: React.FC = () => {
     };
 
     return (
-        <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen">
+        <div className="p-6 bg-gray-900 min-h-screen text-white">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Plugin Manager</h1>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Plugin Manager</h1>
                 <div className="flex space-x-3">
                     <button
                         onClick={() => setShowAddForm(true)}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <FiPlus className="mr-2" /> Add Plugin
                     </button>
                     <button
                         onClick={handleImportPlugin}
-                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
                         <FiDownload className="mr-2" /> Import
                     </button>
                     <button
                         onClick={loadPlugins}
-                        className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        className="flex items-center px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
                     >
                         <FiRefreshCw className="mr-2" /> Refresh
                     </button>
@@ -119,9 +119,9 @@ const PluginManager: React.FC = () => {
             </div>
 
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 flex justify-between items-center dark:bg-red-900 dark:border-red-700 dark:text-red-200">
+                <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 flex justify-between items-center">
                     <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-red-700 dark:text-red-200">
+                    <button onClick={() => setError(null)} className="text-red-200 hover:text-white">
                         <FiX />
                     </button>
                 </div>
@@ -136,13 +136,13 @@ const PluginManager: React.FC = () => {
                         placeholder="Search plugins by name or ID..."
                         value={searchQuery}
                         onChange={handleSearch}
-                        className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                    className="px-4 py-2 border border-gray-600 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="all">All Categories</option>
                     <option value="essential">Essential</option>
@@ -151,12 +151,12 @@ const PluginManager: React.FC = () => {
             </div>
 
             {showAddForm && (
-                <div className="mb-6 p-6 border rounded-lg bg-white dark:bg-gray-800 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Add New Plugin</h2>
+                <div className="mb-6 p-6 border border-gray-700 rounded-lg bg-gray-800 shadow-lg">
+                    <h2 className="text-xl font-semibold mb-4 text-white">Add New Plugin</h2>
                     <textarea
                         value={newPluginManifest}
                         onChange={(e) => setNewPluginManifest(e.target.value)}
-                        className="w-full h-64 p-3 border rounded-lg font-mono text-sm bg-gray-50 dark:bg-gray-700 dark:text-gray-200"
+                        className="w-full h-64 p-3 border border-gray-600 rounded-lg font-mono text-sm bg-gray-700 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={`{
   "id": "plugin-id",
   "name": "Plugin Name",
@@ -172,7 +172,7 @@ const PluginManager: React.FC = () => {
                     <div className="flex justify-end space-x-3 mt-4">
                         <button
                             onClick={() => setShowAddForm(false)}
-                            className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
                         >
                             Cancel
                         </button>
@@ -186,7 +186,7 @@ const PluginManager: React.FC = () => {
                                     setError(`Invalid JSON or failed to install: ${e}`);
                                 }
                             }}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             Install
                         </button>
@@ -196,44 +196,44 @@ const PluginManager: React.FC = () => {
 
             {isLoading ? (
                 <div className="text-center py-16">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading plugins...</p>
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mx-auto"></div>
+                    <p className="mt-4 text-gray-400">Loading plugins...</p>
                 </div>
             ) : filteredPlugins.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg shadow">
-                    <p className="text-lg text-gray-600 dark:text-gray-400">No plugins found</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Try adding a new plugin or adjusting your search.</p>
+                <div className="text-center py-16 bg-gray-800 rounded-lg shadow border border-gray-700">
+                    <p className="text-lg text-gray-300">No plugins found</p>
+                    <p className="text-sm text-gray-400 mt-2">Try adding a new plugin or adjusting your search.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredPlugins.map((plugin) => (
                         <div
                             key={plugin.id}
-                            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                            className="bg-gray-800 border border-gray-700 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
                         >
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{plugin.name}</h3>
+                                <h3 className="text-lg font-semibold text-white">{plugin.name}</h3>
                                 {renderStatusBadge(plugin.successful ? 'Active' : 'Inactive')}
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">ID: {plugin.id}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Version: {plugin.version}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <p className="text-sm text-gray-300 mb-2">ID: {plugin.id}</p>
+                            <p className="text-sm text-gray-300 mb-2">Version: {plugin.version}</p>
+                            <p className="text-sm text-gray-300 mb-2">
                                 Category: {plugin.category || 'Uncategorized'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            <p className="text-sm text-gray-300 mb-4">
                                 Supported Hosts: {plugin.supported_hosts.join(', ') || 'None'}
                             </p>
                             <div className="flex space-x-3">
                                 <button
                                     onClick={() => handleRemovePlugin(plugin.id)}
-                                    className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                    className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                                 >
                                     <FiTrash2 className="mr-2" /> Remove
                                 </button>
                                 {plugin.install_instruction && (
                                     <button
                                         onClick={() => alert(`Install instruction: ${plugin.install_instruction}`)}
-                                        className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                     >
                                         <FiInfo className="mr-2" /> Info
                                     </button>

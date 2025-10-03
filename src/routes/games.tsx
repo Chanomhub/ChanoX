@@ -29,7 +29,7 @@ const GameCard: React.FC<{
     const isExtractable = (filename: string): boolean => /\.(zip|7z|rar)$/i.test(filename);
 
     return (
-        <Card className="hover:shadow-lg transition-all duration-300 overflow-hidden">
+        <Card className="hover:shadow-lg transition-all duration-300 overflow-hidden bg-gray-800 border-gray-700">
             <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 rounded-lg bg-secondary/10 p-1 flex items-center justify-center">
@@ -586,14 +586,14 @@ const Games: React.FC = () => {
     }
 
     return (
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-gray-900 text-white">
             {/* Sidebar */}
-            <div className="w-64 border-r bg-card p-4 hidden md:block sticky top-0 h-screen">
-                <h2 className="text-xl font-bold mb-4">Registered Games</h2>
+            <div className="w-64 border-r border-gray-700 bg-gray-800 p-4 hidden md:block sticky top-0 h-screen">
+                <h2 className="text-xl font-bold mb-4 text-white">Registered Games</h2>
                 <Button
                     variant="outline"
                     size="sm"
-                    className="w-full mb-4"
+                    className="w-full mb-4 border-gray-600 text-gray-300 hover:bg-gray-700"
                     onClick={() => setRefreshKey((prev) => prev + 1)}
                 >
                     <RefreshCw className="w-4 h-4 mr-2" />
@@ -629,7 +629,7 @@ const Games: React.FC = () => {
 
             {/* Main Content */}
             <div className="flex-1 p-6">
-                <h1 className="text-3xl font-bold mb-6">Downloaded Games</h1>
+                <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Downloaded Games</h1>
                 {error && (
                     <Alert variant="destructive" className="mb-6">
                         <AlertCircle className="h-4 w-4" />

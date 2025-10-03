@@ -2,6 +2,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Download, FolderOpen, FileText, X, AlertCircle } from "lucide-react";
 import { DownloadItem } from "./types/types.ts";
 
 export default function DownloadManager() {
@@ -214,123 +220,157 @@ export default function DownloadManager() {
     };
 
     return (
-        <div className="flex flex-col h-full w-full p-6">
-            <h2 className="text-2xl font-bold mb-6">Download Manager</h2>
-
-            <div className="mb-6">
-                <div className="flex items-center mb-2">
-                    <label className="block text-sm font-medium mr-2">Download Directory:</label>
-                    <span className="text-sm">{downloadDirectory}</span>
-                    <button
-                        className="btn btn-sm btn-outline ml-2"
-                        onClick={openDownloadDirectory}
-                    >
-                        Open Directory
-                    </button>
-                </div>
-
-                <div className="flex mb-4">
-                    <input
-                        type="text"
-                        value={downloadUrl}
-                        onChange={(e) => setDownloadUrl(e.target.value)}
-                        className="input input-bordered flex-1 mr-2"
-                        placeholder="Enter URL to download"
-                    />
-                    <button className="btn btn-primary" onClick={startDownload}>
-                        Download
-                    </button>
-                </div>
+        <div className="flex flex-col h-full w-full p-6 bg-gray-900 text-white">
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                    Download Manager
+                </h2>
+                <p className="text-gray-400">Manage your downloads and track progress</p>
             </div>
+
+            <Card className="mb-6 bg-gray-800 border-gray-700">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                        <FolderOpen className="w-5 h-5" />
+                        Download Settings
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Download Directory:</label>
+                            <p className="text-sm text-gray-400 mt-1">{downloadDirectory}</p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={openDownloadDirectory}
+                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        >
+                            <FolderOpen className="w-4 h-4 mr-2" />
+                            Open Directory
+                        </Button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Input
+                            type="text"
+                            value={downloadUrl}
+                            onChange={(e) => setDownloadUrl(e.target.value)}
+                            className="flex-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                            placeholder="Enter URL to download"
+                        />
+                        <Button onClick={startDownload} className="bg-blue-600 hover:bg-blue-700">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
             {downloads.length > 0 && (
                 <div className="overflow-y-auto">
-                    <h3 className="text-xl font-semibold mb-2">Downloads</h3>
+                    <h3 className="text-xl font-semibold mb-4 text-white">Active Downloads</h3>
                     <div className="space-y-4">
                         {downloads.map((download) => (
-                            <div key={download.id} className="border rounded-lg p-4">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="font-medium">{download.filename}</span>
-                                    {download.provider && (
-                                        <span className="badge badge-outline">{download.provider}</span>
-                                    )}
-                                </div>
-
-                                <div className="text-xs mb-2 text-gray-500 truncate">{download.url}</div>
-
-                                {download.status === "downloading" && (
-                                    <div>
-                                        <div className="flex justify-between mb-1">
-                                            <span className="text-sm">{download.status}</span>
-                                            <span className="text-sm">{download.progress.toFixed(2)}%</span>
-                                        </div>
-                                        <progress
-                                            className="progress progress-primary w-full"
-                                            value={download.progress}
-                                            max="100"
-                                        ></progress>
-                                        <div className="flex justify-end mt-2">
-                                            <button
-                                                className="btn btn-sm btn-error"
-                                                onClick={() => {
-                                                    // Dispatch a custom event to update UI immediately
-                                                    window.dispatchEvent(new CustomEvent("download-cancel-requested", {
-                                                        detail: { downloadId: download.id }
-                                                    }));
-                                                    cancelDownload(download.id);
-                                                }}
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
+                            <Card key={download.id} className="bg-gray-800 border-gray-700">
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-lg font-medium text-white flex items-center gap-2">
+                                            <FileText className="w-4 h-4" />
+                                            {download.filename}
+                                        </CardTitle>
+                                        {download.provider && (
+                                            <Badge variant="outline" className="border-gray-600 text-gray-300">
+                                                {download.provider}
+                                            </Badge>
+                                        )}
                                     </div>
-                                )}
+                                    <p className="text-xs text-gray-400 truncate">{download.url}</p>
+                                </CardHeader>
+                                <CardContent>
 
-                                {download.status === "pending" && (
-                                    <div>
-                                        <div className="flex justify-between mb-1">
-                                            <span className="text-sm">Waiting to start...</span>
-                                        </div>
-                                        <progress
-                                            className="progress progress-primary w-full"
-                                            value={0}
-                                            max="100"
-                                        ></progress>
-                                        <div className="flex justify-end mt-2">
-                                            <button
-                                                className="btn btn-sm btn-error"
-                                                onClick={() => cancelDownload(download.id)}
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {download.status === "completed" && (
-                                    <div>
-                                        <div className="text-success flex justify-between items-center">
-                                            <span>Download complete</span>
-                                            {download.path && (
-                                                <button
-                                                    className="btn btn-sm btn-outline btn-success"
-                                                    onClick={() => openFile(download.path as string)}
+                                    {download.status === "downloading" && (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-blue-400 font-medium">Downloading...</span>
+                                                <span className="text-sm text-gray-300">{download.progress.toFixed(2)}%</span>
+                                            </div>
+                                            <Progress value={download.progress} className="w-full" />
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        window.dispatchEvent(new CustomEvent("download-cancel-requested", {
+                                                            detail: { downloadId: download.id }
+                                                        }));
+                                                        cancelDownload(download.id);
+                                                    }}
                                                 >
-                                                    Open File
-                                                </button>
+                                                    <X className="w-4 h-4 mr-2" />
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {download.status === "pending" && (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-yellow-400 font-medium">Waiting to start...</span>
+                                            </div>
+                                            <Progress value={0} className="w-full" />
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => cancelDownload(download.id)}
+                                                >
+                                                    <X className="w-4 h-4 mr-2" />
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {download.status === "completed" && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-green-400 font-medium">Download complete</span>
+                                                {download.path && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => openFile(download.path as string)}
+                                                        className="border-green-600 text-green-400 hover:bg-green-600/10"
+                                                    >
+                                                        <FileText className="w-4 h-4 mr-2" />
+                                                        Open File
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            {download.path && (
+                                                <p className="text-xs text-gray-400 break-all">{download.path}</p>
                                             )}
                                         </div>
-                                        <div className="text-xs mt-1 text-gray-500">{download.path}</div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {(download.status === "failed" || download.status === "cancelled") && (
-                                    <div className={download.status === "failed" ? "text-error" : "text-warning"}>
-                                        {download.status === "failed" ? "Download failed" : "Download cancelled"}:{" "}
-                                        {download.error?.replace("Download failed: ", "").replace("Download cancelled: ", "") || "Unknown error"}
-                                    </div>
-                                )}
-                            </div>
+                                    {(download.status === "failed" || download.status === "cancelled") && (
+                                        <div className="flex items-center gap-2">
+                                            <AlertCircle className="w-4 h-4 text-red-400" />
+                                            <div>
+                                                <p className={`font-medium ${download.status === "failed" ? "text-red-400" : "text-yellow-400"}`}>
+                                                    {download.status === "failed" ? "Download failed" : "Download cancelled"}
+                                                </p>
+                                                <p className="text-sm text-gray-400">
+                                                    {download.error?.replace("Download failed: ", "").replace("Download cancelled: ", "") || "Unknown error"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         ))}
                     </div>
                 </div>

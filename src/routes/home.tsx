@@ -488,17 +488,16 @@ const Home: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-100 to-base-200/30">
+        <div className="min-h-screen bg-gray-900 text-white">
             <div className="container mx-auto px-4 py-8">
                 {/* End-of-pages alert */}
                 {renderEndAlert()}
 
-                <Button>Click me</Button>
 
                 {/* Header */}
-                <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm py-6 mb-8">
+                <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm py-6 mb-8">
                     <div className="container mx-auto px-4">
-                        <h1 className="text-5xl font-black mb-8 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent text-center">
+                        <h1 className="text-5xl font-black mb-8 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent text-center">
                             🎮 Game Library
                         </h1>
 
