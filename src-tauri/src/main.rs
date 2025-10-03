@@ -20,23 +20,15 @@ use std::path::{Path, PathBuf};
 use std::process::{Command as StdCommand, Command};
 use std::sync::{Mutex, RwLock};
 use tauri::{
-    AppHandle, Emitter, Manager, State, Wry,
+    AppHandle, Emitter, Manager, State,
     // menu::{CustomMenuItem, Menu, MenuItem, Submenu},
     // tray::{Tray, TrayEvent, TrayMenu, TrayMenuItem},
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
-use std::fs::File;
-use ico::IconDir;
-use image::DynamicImage;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use std::process::Stdio;
-
-fn sanitize_filename(filename: &str) -> String {
-    let re = regex::Regex::new(r#"[^a-zA-Z0-9._-]"#).unwrap();
-    re.replace_all(filename, "_").to_string()
-}
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ActiveDownloads {

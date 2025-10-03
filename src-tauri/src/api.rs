@@ -44,10 +44,7 @@ pub struct ArticlesResponse {
     pub articles_count: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ArticleResponse {
-    article: Article,
-}
+
 
 #[tauri::command]
 pub async fn get_articles(
@@ -92,23 +89,4 @@ pub async fn get_articles(
     let articles_response = response.json::<ArticlesResponse>().await.map_err(|e| e.to_string())?;
     println!("Successfully parsed {} articles.", articles_response.articles.len());
     Ok(articles_response.articles)
-}
-
-pub async fn fetch_article_by_slug(slug: String, token: Option<String>) -> Result<ArticleResponse, String> {
-    let client = Client::new();
-    let url = format!("https://api.chanomhub.online/api/articles/{}", slug);
-    let mut request = client.get(&url)
-        .header("accept", "application/json");
-
-    if let Some(token) = token {
-        request = request.header("Authorization", format!("Bearer {}", token));
-    }
-
-    let response = request.send().await.map_err(|e| e.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("Failed to fetch article: {}", response.status()));
-    }
-
-    let article_response = response.json::<ArticleResponse>().await.map_err(|e| e.to_string())?;
-    Ok(article_response)
 }
