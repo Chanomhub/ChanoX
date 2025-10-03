@@ -8,7 +8,6 @@ on:
       - main
   workflow_dispatch:
 
-# เพิ่ม permissions สำหรับ GITHUB_TOKEN
 permissions:
   contents: write
 
@@ -105,7 +104,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: bun run tauri:build:mac:arm64
 
-      # Upload เฉพาะไฟล์ installer (ไม่รวม build scripts)
       - name: Prepare artifacts
         shell: bash
         run: |
@@ -131,12 +129,11 @@ jobs:
         with:
           name: ChanoX-${{ matrix.os }}-${{ matrix.arch }}
           path: upload_artifacts/*
-          retention-days: 1  # เก็บแค่ 1 วัน เพราะจะ release ทันที
+          retention-days: 1
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    # เพิ่ม permissions เฉพาะสำหรับ job นี้ด้วย (ป้องกัน)
     permissions:
       contents: write
     steps:
@@ -145,15 +142,13 @@ jobs:
         with:
           path: artifacts
 
-      # Flatten artifacts และตรวจสอบไฟล์ซ้ำ
       - name: Prepare release files
         run: |
           mkdir -p release_files
           
-          # ย้ายไฟล์ทั้งหมดมาที่ root level และป้องกันไฟล์ซ้ำ
+       
           find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" \) | while read file; do
             filename=$(basename "$file")
-            # ถ้ามีไฟล์ชื่อเดียวกันอยู่แล้ว ให้ข้าม
             if [ ! -f "release_files/$filename" ]; then
               cp "$file" "release_files/"
               echo "✓ Copied: $filename"
@@ -178,11 +173,46 @@ jobs:
             echo "NAME=${RELEASE_NAME}" >> $GITHUB_ENV
           fi
 
+      - name: Get previous tag
+        id: previous_tag
+        run: |
+          PREV_TAG=$(git ls-remote --tags origin | awk '{print $2}' | grep -v '\^{}' | sed 's/refs\/tags\///' | sort -V | tail -n 2 | head -n 1)
+          if [ -z "$PREV_TAG" ]; then
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "PREVIOUS_TAG=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          REPO="${{ github.repository }}"
+          CURRENT_TAG="${{ env.NAME }}"
+          PREVIOUS_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
+          
+          CHANGELOG="## 🚀 What's Changed
+          
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
+          
+          ---
+          
+          ### 📦 Downloads
+          - **Windows**: \`.msi\` installer
+          - **macOS**: \`.dmg\` installer (Apple Silicon)
+          - **Linux**: \`.deb\` package or \`.AppImage\`
+          "
+          
+          # บันทึกเป็น multiline output
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NAME }}
           name: ${{ env.NAME }}
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
           files: release_files/*
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
