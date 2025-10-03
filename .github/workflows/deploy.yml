@@ -137,6 +137,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -146,7 +151,6 @@ jobs:
         run: |
           mkdir -p release_files
           
-       
           find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" \) | while read file; do
             filename=$(basename "$file")
             if [ ! -f "release_files/$filename" ]; then
@@ -160,23 +164,61 @@ jobs:
           echo "📦 Final files:"
           ls -lh release_files/
 
-      - name: Set Release Name
-        if: startsWith(github.ref, 'refs/heads/main')
-        run: echo "RELEASE_NAME=nightly-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
-
       - name: Determine tag/release name
-        id: release_name
+        id: release_info
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+            # Tagged release
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            echo "NAME=${TAG_NAME}" >> $GITHUB_ENV
+            echo "IS_NIGHTLY=false" >> $GITHUB_ENV
+            echo "IS_NIGHTLY=false" >> $GITHUB_OUTPUT
           else
-            echo "NAME=${RELEASE_NAME}" >> $GITHUB_ENV
+            # Nightly release - ใช้ชื่อแบบวันเดียว
+            NIGHTLY_NAME="nightly-$(date +'%Y%m%d')"
+            echo "NAME=${NIGHTLY_NAME}" >> $GITHUB_ENV
+            echo "IS_NIGHTLY=true" >> $GITHUB_ENV
+            echo "IS_NIGHTLY=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Check existing nightly release
+        if: env.IS_NIGHTLY == 'true'
+        id: check_nightly
+        run: |
+          RELEASE_NAME="${{ env.NAME }}"
+          
+          # ตรวจสอบว่ามี release ชื่อนี้อยู่แล้วหรือไม่
+          if gh release view "$RELEASE_NAME" >/dev/null 2>&1; then
+            echo "EXISTS=true" >> $GITHUB_OUTPUT
+            echo "🔄 Found existing nightly release: $RELEASE_NAME - will update it"
+          else
+            echo "EXISTS=false" >> $GITHUB_OUTPUT
+            echo "✨ No existing nightly release found - will create new one"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing nightly release
+        if: env.IS_NIGHTLY == 'true' && steps.check_nightly.outputs.EXISTS == 'true'
+        run: |
+          RELEASE_NAME="${{ env.NAME }}"
+          echo "🗑️ Deleting existing release and tag: $RELEASE_NAME"
+          gh release delete "$RELEASE_NAME" --yes || true
+          git push origin --delete "$RELEASE_NAME" || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get previous tag
         id: previous_tag
         run: |
-          PREV_TAG=$(git ls-remote --tags origin | awk '{print $2}' | grep -v '\^{}' | sed 's/refs\/tags\///' | sort -V | tail -n 2 | head -n 1)
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            # สำหรับ tagged release ให้หา tag ก่อนหน้า
+            PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | head -n 2 | tail -n 1)
+          else
+            # สำหรับ nightly ให้หา tag ล่าสุดที่ไม่ใช่ nightly
+            PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | head -n 1)
+          fi
+          
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
@@ -190,7 +232,24 @@ jobs:
           CURRENT_TAG="${{ env.NAME }}"
           PREVIOUS_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
           
-          CHANGELOG="## 🚀 What's Changed
+          if [[ "${{ env.IS_NIGHTLY }}" == "true" ]]; then
+            CHANGELOG="## 🌙 Nightly Build - $(date +'%Y-%m-%d')
+          
+          This is an automated nightly build from the latest \`main\` branch.
+          
+          **⚠️ Warning**: Nightly builds may contain unstable features and bugs.
+          
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
+          
+          ---
+          
+          ### 📦 Downloads
+          - **Windows**: \`.msi\` installer
+          - **macOS**: \`.dmg\` installer (Apple Silicon)
+          - **Linux**: \`.deb\` package or \`.AppImage\`
+          "
+          else
+            CHANGELOG="## 🚀 What's Changed
           
           **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
           
@@ -201,8 +260,8 @@ jobs:
           - **macOS**: \`.dmg\` installer (Apple Silicon)
           - **Linux**: \`.deb\` package or \`.AppImage\`
           "
+          fi
           
-         
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -215,6 +274,6 @@ jobs:
           body: ${{ steps.changelog.outputs.CHANGELOG }}
           files: release_files/*
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ env.IS_NIGHTLY == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
