@@ -98,12 +98,8 @@ jobs:
         run: bun run tauri:build:x64
 
       - name: Build macOS ARM App
-        if: matrix.os == 'macos-latest' && matrix.arch == 'arm64'
+        if: matrix.os == 'macos-latest'
         run: bun run tauri:build:mac:arm64
-
-      - name: Build macOS x64 App
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
-        run: bun run tauri:build:mac:x64
 
       # Upload เฉพาะไฟล์ installer (ไม่รวม build scripts)
       - name: Prepare artifacts
@@ -121,7 +117,7 @@ jobs:
              find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" -exec cp {} upload_artifacts/ \; 2>/dev/null || true
           fi
           
-          # macOS
+          # macOS (ARM64 only)
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" -exec cp {} upload_artifacts/ \;
           fi
