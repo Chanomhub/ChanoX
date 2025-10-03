@@ -43,7 +43,7 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libsoup-3.0-dev \ # สำหรับ soup3-sys
+            libsoup-3.0-dev \
             libwebkit2gtk-4.1-dev 
 
       - name: Install dependencies
