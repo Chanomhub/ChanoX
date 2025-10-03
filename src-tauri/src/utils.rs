@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tauri::Manager;
 
 pub fn strip_ansi_codes(input: &str) -> String {
     let re = regex::Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
