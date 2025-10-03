@@ -24,7 +24,9 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://raw.githubusercontent.com/Chanomhub/Chanomhub-Desktop/main/latest.json"],
+      "endpoints": [
+        "https://raw.githubusercontent.com/Chanomhub/Chanomhub-Desktop/main/latest.json"
+      ],
       "pubkey": "THE_PUBLIC_KEY_GENERATED_BY_UPDATER"
     },
     "http": {
