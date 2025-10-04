@@ -111,17 +111,77 @@ jobs:
           
           # Linux 
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec cp {} upload_artifacts/ \;
+            # คัดลอกไฟล์ installer
+            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec sh -c '
+              for file; do
+                filename=$(basename "$file")
+                # ลบเวอร์ชันออกจากชื่อไฟล์
+                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+                cp "$file" "upload_artifacts/$newname"
+              done
+            ' sh {} +
+          
+            # สร้างไฟล์ tar.gz
+            find src-tauri/target/release/bundle -type d -name "appimage" | while read appimage_dir; do
+              if [ -d "$appimage_dir" ]; then
+                cd "$appimage_dir"
+                for app in *.AppImage; do
+                  if [ -f "$app" ]; then
+                    app_name=$(echo "$app" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+//g" | sed "s/.AppImage//g")
+                    tar -czf "${app_name}.tar.gz" "$app"
+                    mv "${app_name}.tar.gz" "$GITHUB_WORKSPACE/upload_artifacts/"
+                  fi
+                done
+              fi
+            done
           fi
           
           # Windows
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-             find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" -exec cp {} upload_artifacts/ \; 2>/dev/null || true
+            # คัดลอกไฟล์ MSI installer
+            find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" -exec sh -c '
+              for file; do
+                filename=$(basename "$file")
+                # ลบเวอร์ชันออกจากชื่อไฟล์
+                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+                cp "$file" "upload_artifacts/$newname"
+              done
+            ' sh {} + 2>/dev/null || true
+          
+            # สร้างไฟล์ zip จาก build output
+            find src-tauri/target -type d -path "*/release/bundle/msi" | while read msi_dir; do
+              release_dir=$(dirname $(dirname "$msi_dir"))
+              if [ -f "$release_dir/*.exe" ]; then
+                cd "$release_dir"
+                app_name=$(ls *.exe | head -n1 | sed 's/.exe//g')
+                zip -r "${app_name}.zip" *.exe *.dll 2>/dev/null || true
+                mv "${app_name}.zip" "$GITHUB_WORKSPACE/upload_artifacts/" 2>/dev/null || true
+              fi
+            done
           fi
           
           # macOS (ARM64 only)
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" -exec cp {} upload_artifacts/ \;
+            # คัดลอกไฟล์ DMG installer
+            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" -exec sh -c '
+              for file; do
+                filename=$(basename "$file")
+                # ลบเวอร์ชันออกจากชื่อไฟล์
+                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+                cp "$file" "upload_artifacts/$newname"
+              done
+            ' sh {} +
+          
+            # สร้างไฟล์ tar.gz จาก .app bundle
+            find src-tauri/target -type d -path "*/bundle/macos/*.app" | while read app_bundle; do
+              if [ -d "$app_bundle" ]; then
+                app_name=$(basename "$app_bundle" .app)
+                app_dir=$(dirname "$app_bundle")
+                cd "$app_dir"
+                tar -czf "${app_name}.tar.gz" "$(basename "$app_bundle")"
+                mv "${app_name}.tar.gz" "$GITHUB_WORKSPACE/upload_artifacts/"
+              fi
+            done
           fi
 
       - name: Upload build artifact
@@ -151,7 +211,7 @@ jobs:
         run: |
           mkdir -p release_files
           
-          find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" \) | while read file; do
+          find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.zip" \) | while read file; do
             filename=$(basename "$file")
             if [ ! -f "release_files/$filename" ]; then
               cp "$file" "release_files/"
@@ -244,9 +304,16 @@ jobs:
           ---
           
           ### 📦 Downloads
+          
+          **Installers:**
           - **Windows**: \`.msi\` installer
           - **macOS**: \`.dmg\` installer (Apple Silicon)
           - **Linux**: \`.deb\` package or \`.AppImage\`
+          
+          **Portable/Archive versions:**
+          - **Windows**: \`.zip\` (no installation required)
+          - **macOS**: \`.tar.gz\` (no installation required)
+          - **Linux**: \`.tar.gz\` (no installation required)
           "
           else
             CHANGELOG="## 🚀 What's Changed
@@ -256,9 +323,16 @@ jobs:
           ---
           
           ### 📦 Downloads
+          
+          **Installers:**
           - **Windows**: \`.msi\` installer
           - **macOS**: \`.dmg\` installer (Apple Silicon)
           - **Linux**: \`.deb\` package or \`.AppImage\`
+          
+          **Portable/Archive versions:**
+          - **Windows**: \`.zip\` (no installation required)
+          - **macOS**: \`.tar.gz\` (no installation required)
+          - **Linux**: \`.tar.gz\` (no installation required)
           "
           fi
           
