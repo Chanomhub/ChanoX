@@ -1,0 +1,110 @@
+name: Build Linux
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-cargo-
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev \
+            libatk1.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
+            xvfb
+
+      - name: Ensure resources exist
+        run: |
+          mkdir -p src-tauri/downloads src-tauri/binaries
+          touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
+
+      - name: Build Linux App
+        run: xvfb-run -a bun run tauri:build:linux:x64
+
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          mkdir -p upload_artifacts
+          # Prefer copying both AppImage and deb if present
+          echo "Searching for artifacts in src-tauri/target"
+          shopt -s globstar || true
+          found=0
+          for f in src-tauri/target/**/bundle/**/*.{AppImage,deb}; do
+            if [ -f "$f" ]; then
+              found=1
+              filename=$(basename "$f")
+              newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+              cp "$f" "upload_artifacts/$newname" || cp -p "$f" "upload_artifacts/$newname"
+              echo "✓ Copied: $newname"
+            fi
+          done
+
+          if [ "$found" -eq 0 ]; then
+            echo "⚠ No linux artifacts found. Listing target directories for debugging:"
+            ls -R src-tauri/target || true
+            # Still create an empty marker to avoid upload failure
+            touch upload_artifacts/.no_linux_artifact
+          fi
+
+          echo "Artifacts prepared:"; ls -lh upload_artifacts || true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChanoX-linux-${{ matrix.arch }}
+          path: upload_artifacts/*
+          retention-days: 1

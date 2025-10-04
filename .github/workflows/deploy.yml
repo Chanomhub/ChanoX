@@ -1,168 +1,16 @@
-name: Build & Release Tauri App
+name: Release ChanoX
 
 on:
   push:
     tags:
       - "v*"
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        arch: [x64]
-        include:
-          - os: macos-latest
-            arch: arm64
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Cache Bun dependencies
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      # Cache Rust dependencies
-      - name: Cache Rust
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            src-tauri/target/
-          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.arch }}-cargo-
-
-      - name: Install Linux Dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            pkg-config \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libgdk-pixbuf2.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libatk1.0-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libsoup-3.0-dev \
-            libwebkit2gtk-4.1-dev \
-            xvfb
-
-      - name: Ensure resources exist (Linux/macOS)
-        if: matrix.os != 'windows-latest'
-        run: |
-          # สร้าง directories และ placeholder files
-          mkdir -p src-tauri/downloads src-tauri/binaries
-          touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
-
-          echo "📁 Directory structure:"
-          ls -la src-tauri/
-
-      - name: Ensure resources exist (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          if (!(Test-Path "src-tauri/downloads")) { New-Item -ItemType Directory -Path "src-tauri/downloads" }
-          if (!(Test-Path "src-tauri/binaries")) { New-Item -ItemType Directory -Path "src-tauri/binaries" }
-        shell: pwsh
-
-      - name: Build Linux App
-        if: matrix.os == 'ubuntu-latest'
-        run: xvfb-run -a bun run tauri:build:linux:x64
-
-      - name: Build Windows App
-        if: matrix.os == 'windows-latest'
-        run: bun run tauri:build:x64
-
-      - name: Build macOS ARM App
-        if: matrix.os == 'macos-latest'
-        run: bun run tauri:build:mac:arm64
-
-      - name: Prepare artifacts
-        shell: bash
-        run: |
-          mkdir -p upload_artifacts
-          
-          # Linux - คัดลอกแยกไฟล์ installer ไม่สร้าง archive
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) 2>/dev/null | while read file; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file")
-                # ลบเวอร์ชันออกจากชื่อไฟล์
-                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
-                cp "$file" "upload_artifacts/$newname"
-                echo "✓ Copied: $newname"
-              fi
-            done
-          fi
-          
-          # Windows - คัดลอกแยกไฟล์ installer ไม่สร้าง archive
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" 2>/dev/null | while read file; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file")
-                # ลบเวอร์ชันออกจากชื่อไฟล์
-                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
-                cp "$file" "upload_artifacts/$newname"
-                echo "✓ Copied: $newname"
-              fi
-            done
-          fi
-          
-          # macOS - คัดลอกแยกไฟล์ installer ไม่สร้าง archive
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" 2>/dev/null | while read file; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file")
-                # ลบเวอร์ชันออกจากชื่อไฟล์
-                newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
-                cp "$file" "upload_artifacts/$newname"
-                echo "✓ Copied: $newname"
-              fi
-            done
-          fi
-          
-          echo ""
-          echo "📦 All prepared files:"
-          ls -lh upload_artifacts/ 2>/dev/null || echo "No files found"
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ChanoX-${{ matrix.os }}-${{ matrix.arch }}
-          path: upload_artifacts/*
-          retention-days: 1
-
   release:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -180,8 +28,9 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release_files
-          
-          find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" \) | while read file; do
+
+          # Primary: copy known installer types (case-insensitive for AppImage)
+          find artifacts -type f \( -iname "*.deb" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.dmg" \) -print0 | while IFS= read -r -d '' file; do
             filename=$(basename "$file")
             if [ ! -f "release_files/$filename" ]; then
               cp "$file" "release_files/"
@@ -190,21 +39,31 @@ jobs:
               echo "⚠ Skipped duplicate: $filename"
             fi
           done
-          
+
+          # Fallback: if no installers found, copy any non-marker file from artifacts
+          if [ -z "$(ls -A release_files 2>/dev/null)" ]; then
+            echo "⚠ No known installers found; falling back to copying any artifact files (excluding .no_* markers)"
+            find artifacts -type f ! -name ".no_*" -print0 | while IFS= read -r -d '' file; do
+              filename=$(basename "$file")
+              if [ ! -f "release_files/$filename" ]; then
+                cp "$file" "release_files/"
+                echo "✓ Fallback copied: $filename"
+              fi
+            done
+          fi
+
           echo "📦 Final files:"
-          ls -lh release_files/
+          ls -lah release_files/ || echo "No files prepared"
 
       - name: Determine tag/release name
         id: release_info
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            # Tagged release
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             echo "NAME=${TAG_NAME}" >> $GITHUB_ENV
             echo "IS_NIGHTLY=false" >> $GITHUB_ENV
             echo "IS_NIGHTLY=false" >> $GITHUB_OUTPUT
           else
-            # Nightly release - ใช้ชื่อแบบวันเดียว
             NIGHTLY_NAME="nightly-$(date +'%Y%m%d')"
             echo "NAME=${NIGHTLY_NAME}" >> $GITHUB_ENV
             echo "IS_NIGHTLY=true" >> $GITHUB_ENV
@@ -216,8 +75,6 @@ jobs:
         id: check_nightly
         run: |
           RELEASE_NAME="${{ env.NAME }}"
-          
-          # ตรวจสอบว่ามี release ชื่อนี้อยู่แล้วหรือไม่
           if gh release view "$RELEASE_NAME" >/dev/null 2>&1; then
             echo "EXISTS=true" >> $GITHUB_OUTPUT
             echo "🔄 Found existing nightly release: $RELEASE_NAME - will update it"
@@ -242,13 +99,11 @@ jobs:
         id: previous_tag
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            # สำหรับ tagged release ให้หา tag ก่อนหน้า
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | head -n 2 | tail -n 1)
           else
-            # สำหรับ nightly ให้หา tag ล่าสุดที่ไม่ใช่ nightly
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | head -n 1)
           fi
-          
+
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
@@ -261,55 +116,55 @@ jobs:
           REPO="${{ github.repository }}"
           CURRENT_TAG="${{ env.NAME }}"
           PREVIOUS_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
-          
+
           if [[ "${{ env.IS_NIGHTLY }}" == "true" ]]; then
             CHANGELOG="## 🌙 Nightly Build - $(date +'%Y-%m-%d')
-          
-          This is an automated nightly build from the latest \`main\` branch.
-          
-          **⚠️ Warning**: Nightly builds may contain unstable features and bugs.
-          
-          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
-          
-          ---
-          
-          ### 📦 Downloads
-          
-          Choose the appropriate installer for your operating system:
-          
-          **Windows:**
-          - \`.msi\` - Windows installer
-          
-          **macOS (Apple Silicon):**
-          - \`.dmg\` - macOS installer
-          
-          **Linux:**
-          - \`.deb\` - Debian/Ubuntu package
-          - \`.AppImage\` - Universal Linux application
-          "
+
+This is an automated nightly build from the latest \`main\` branch.
+
+**⚠️ Warning**: Nightly builds may contain unstable features and bugs.
+
+**Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
+
+---
+
+### 📦 Downloads
+
+Choose the appropriate installer for your operating system:
+
+**Windows:**
+- \`.msi\` - Windows installer
+
+**macOS (Apple Silicon):**
+- \`.dmg\` - macOS installer
+
+**Linux:**
+- \`.deb\` - Debian/Ubuntu package
+- \`.AppImage\` - Universal Linux application
+"
           else
             CHANGELOG="## 🚀 What's Changed
-          
-          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
-          
-          ---
-          
-          ### 📦 Downloads
-          
-          Choose the appropriate installer for your operating system:
-          
-          **Windows:**
-          - \`.msi\` - Windows installer
-          
-          **macOS (Apple Silicon):**
-          - \`.dmg\` - macOS installer
-          
-          **Linux:**
-          - \`.deb\` - Debian/Ubuntu package
-          - \`.AppImage\` - Universal Linux application
-          "
+
+**Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
+
+---
+
+### 📦 Downloads
+
+Choose the appropriate installer for your operating system:
+
+**Windows:**
+- \`.msi\` - Windows installer
+
+**macOS (Apple Silicon):**
+- \`.dmg\` - macOS installer
+
+**Linux:**
+- \`.deb\` - Debian/Ubuntu package
+- \`.AppImage\` - Universal Linux application
+"
           fi
-          
+
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
