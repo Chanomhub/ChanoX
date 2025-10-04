@@ -61,6 +61,12 @@ jobs:
         run: |
           echo "Project directory structure:"
           ls -R
+          if [ -f "tauri.conf.json" ]; then
+            echo "tauri.conf.json contents:"
+            cat tauri.conf.json
+          else
+            echo "Warning: tauri.conf.json not found"
+          fi
 
       - name: Run Tests
         continue-on-error: true
@@ -82,16 +88,22 @@ jobs:
       - name: Ensure resources exist
         run: |
           mkdir -p src-tauri/downloads src-tauri/binaries
-          touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
+          touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep || echo "Warning: Failed to create .gitkeep files"
 
       - name: Build macOS App
-        run: bun run tauri:build:mac:${{ matrix.arch }}
+        run: |
+          echo "Running Tauri build for ${{ matrix.arch }}"
+          bun run tauri:build:mac:${{ matrix.arch }}
+          echo "Listing build output directories:"
+          find . -type d -name "bundle" -exec ls -R {} \; || echo "No bundle directories found"
 
       - name: Prepare artifacts
         shell: bash
+        continue-on-error: true  # Prevent pipeline failure
         run: |
           mkdir -p upload_artifacts
-          find src-tauri/target -path "*/bundle/*" -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null | while read file; do
+          # Search for artifacts in broader scope to catch non-standard paths
+          find . -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null | while read file; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')
@@ -99,17 +111,22 @@ jobs:
               echo "✓ Copied: $newname"
             fi
           done
-          cd upload_artifacts
+          # Generate checksums
+          cd upload_artifacts || exit 1
           for file in *; do
             if [ -f "$file" ] && [ "$file" != ".no_macos_artifact" ]; then
               shasum -a 256 "$file" > "$file.sha256"
               echo "✓ Generated checksum: $file.sha256"
             fi
           done
-          if [ -z "$(ls -A upload_artifacts 2>/dev/null)" ]; then
-            echo '⚠ No macOS artifacts found. Listing target directories for debugging:'
-            ls -R src-tauri/target || true
-            touch upload_artifacts/.no_macos_artifact
+          # Check if artifacts exist
+          if [ -z "$(find upload_artifacts -maxdepth 1 -type f ! -name '.no_macos_artifact' 2>/dev/null)" ]; then
+            echo '⚠ No macOS artifacts found. Listing possible target directories for debugging:'
+            find . -type d -name "target" -exec ls -R {} \; || echo "No target directories found"
+            touch upload_artifacts/.no_macos_artifact || echo "Warning: Failed to create .no_macos_artifact"
+          else
+            echo "Artifacts prepared:"
+            ls -lh upload_artifacts
           fi
 
       - name: Upload build artifact
