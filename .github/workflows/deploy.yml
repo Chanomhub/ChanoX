@@ -10,7 +10,19 @@ permissions:
   contents: write
 
 jobs:
+  # Build all platforms first
+  build-linux:
+    uses: ./.github/workflows/build-linux.yml
+
+  build-macos:
+    uses: ./.github/workflows/build-macos.yml
+
+  build-windows:
+    uses: ./.github/workflows/build-windows.yml
+
+  # Then create release with all artifacts
   release:
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
