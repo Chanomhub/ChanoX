@@ -74,10 +74,12 @@ jobs:
             librsvg2-dev \
             patchelf \
             libsoup-3.0-dev \
-            libwebkit2gtk-4.1-dev
+            libwebkit2gtk-4.1-dev \
+            xvfb
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Build Linux App
+        if: matrix.os == 'ubuntu-latest'
+        run: xvfb-run -a bun run tauri:build:linux:x64
 
       - name: Ensure resources exist (Linux/macOS)
         if: matrix.os != 'windows-latest'
