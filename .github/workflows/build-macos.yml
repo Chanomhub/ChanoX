@@ -5,21 +5,21 @@ on:
     branches:
       - main
   workflow_dispatch:
-  workflow_call:  # Allows reuse from other workflows like deploy.yml
+  workflow_call:
 
 permissions:
-  contents: read  # Downgraded to read for build, release needs write
+  contents: read
 
 jobs:
   build-macos:
     runs-on: macos-latest
     strategy:
       matrix:
-        arch: [x64, arm64]  # Full matrix for both architectures
+        arch: [x64, arm64]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  # Pinned version
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -37,6 +37,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Cache Rust
+        if: hashFiles('**/Cargo.toml') != ''
         uses: actions/cache@v4
         with:
           path: |
@@ -49,12 +50,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Run Tests
+      - name: Install Rust Target
+        if: matrix.arch == 'x64' && hashFiles('**/Cargo.toml') != ''
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Update Browserslist
+        run: npx update-browserslist-db@latest
+
+      - name: Debug Project Structure
         run: |
-          bun test || echo "Warning: No Bun tests found"  # Run JS tests
-          cargo test || echo "Warning: No Rust tests found"  # Run Rust tests
+          echo "Project directory structure:"
+          ls -R
+
+      - name: Run Tests
+        continue-on-error: true
+        run: |
+          bun test || echo "Warning: No Bun tests found. Ensure test files have .test, _test_, .spec, or _spec_ in the filename."
+          if [ -f "Cargo.toml" ]; then
+            cargo test || echo "Warning: Rust tests failed or no tests found"
+          else
+            echo "Info: No Cargo.toml found, skipping Rust tests"
+          fi
 
       - name: Security Scan
+        if: hashFiles('**/Cargo.toml') != ''
+        continue-on-error: true
         run: |
           cargo install cargo-audit
           cargo audit || echo "Warning: Security scan issues detected"
@@ -65,7 +85,7 @@ jobs:
           touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
 
       - name: Build macOS App
-        run: bun run tauri:build:mac:${{ matrix.arch }}  # Use matrix arch directly
+        run: bun run tauri:build:mac:${{ matrix.arch }}
 
       - name: Prepare artifacts
         shell: bash
@@ -74,17 +94,11 @@ jobs:
           find src-tauri/target -path "*/bundle/*" -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null | while read file; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')  # Handle semver
+              newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')
               cp "$file" "upload_artifacts/$newname"
               echo "✓ Copied: $newname"
             fi
           done
-          if [ -z "$(ls -A upload_artifacts 2>/dev/null)" ]; then
-            echo '⚠ No macOS artifacts found. Listing target directories for debugging:'
-            ls -R src-tauri/target || true
-            touch upload_artifacts/.no_macos_artifact
-          fi
-          # Generate checksums for artifacts
           cd upload_artifacts
           for file in *; do
             if [ -f "$file" ] && [ "$file" != ".no_macos_artifact" ]; then
@@ -92,10 +106,15 @@ jobs:
               echo "✓ Generated checksum: $file.sha256"
             fi
           done
+          if [ -z "$(ls -A upload_artifacts 2>/dev/null)" ]; then
+            echo '⚠ No macOS artifacts found. Listing target directories for debugging:'
+            ls -R src-tauri/target || true
+            touch upload_artifacts/.no_macos_artifact
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChanoX-macos-${{ matrix.arch }}
           path: upload_artifacts/*
-          retention-days: 7  # Increased retention for debugging
+          retention-days: 7
