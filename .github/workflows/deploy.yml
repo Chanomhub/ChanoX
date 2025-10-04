@@ -111,27 +111,21 @@ jobs:
           
           # Linux 
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            # คัดลอกไฟล์ installer
-            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) -exec sh -c '
-              for file; do
+            # คัดลอกไฟล์ installer และสร้าง tar.gz
+            find src-tauri/target -path "*/bundle/*" -type f \( -name "*.deb" -o -name "*.AppImage" \) 2>/dev/null | while read file; do
+              if [ -f "$file" ]; then
                 filename=$(basename "$file")
                 # ลบเวอร์ชันออกจากชื่อไฟล์
                 newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
                 cp "$file" "upload_artifacts/$newname"
-              done
-            ' sh {} +
+                echo "✓ Copied: $newname"
           
-            # สร้างไฟล์ tar.gz
-            find src-tauri/target/release/bundle -type d -name "appimage" | while read appimage_dir; do
-              if [ -d "$appimage_dir" ]; then
-                cd "$appimage_dir"
-                for app in *.AppImage; do
-                  if [ -f "$app" ]; then
-                    app_name=$(echo "$app" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+//g" | sed "s/.AppImage//g")
-                    tar -czf "${app_name}.tar.gz" "$app"
-                    mv "${app_name}.tar.gz" "$GITHUB_WORKSPACE/upload_artifacts/"
-                  fi
-                done
+                # สร้าง tar.gz สำหรับ AppImage
+                if [[ "$filename" == *.AppImage ]]; then
+                  app_name=$(echo "$newname" | sed "s/.AppImage//g")
+                  tar -czf "upload_artifacts/${app_name}.tar.gz" -C "$(dirname "$file")" "$filename"
+                  echo "✓ Created archive: ${app_name}.tar.gz"
+                fi
               fi
             done
           fi
@@ -139,50 +133,61 @@ jobs:
           # Windows
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             # คัดลอกไฟล์ MSI installer
-            find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" -exec sh -c '
-              for file; do
+            find src-tauri/target -path "*/bundle/*" -type f -name "*.msi" ! -name "build_script_*" 2>/dev/null | while read file; do
+              if [ -f "$file" ]; then
                 filename=$(basename "$file")
                 # ลบเวอร์ชันออกจากชื่อไฟล์
                 newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
                 cp "$file" "upload_artifacts/$newname"
-              done
-            ' sh {} + 2>/dev/null || true
-          
-            # สร้างไฟล์ zip จาก build output
-            find src-tauri/target -type d -path "*/release/bundle/msi" | while read msi_dir; do
-              release_dir=$(dirname $(dirname "$msi_dir"))
-              if [ -f "$release_dir/*.exe" ]; then
-                cd "$release_dir"
-                app_name=$(ls *.exe | head -n1 | sed 's/.exe//g')
-                zip -r "${app_name}.zip" *.exe *.dll 2>/dev/null || true
-                mv "${app_name}.zip" "$GITHUB_WORKSPACE/upload_artifacts/" 2>/dev/null || true
+                echo "✓ Copied: $newname"
               fi
             done
+          
+            # สร้างไฟล์ zip จาก release build
+            if [ -d "src-tauri/target/release" ]; then
+              cd src-tauri/target/release
+              if ls *.exe 1> /dev/null 2>&1; then
+                app_name=$(ls *.exe | head -n1 | sed 's/.exe//g')
+                zip -r "${app_name}.zip" *.exe *.dll 2>/dev/null || zip -r "${app_name}.zip" *.exe 2>/dev/null || true
+                if [ -f "${app_name}.zip" ]; then
+                  mv "${app_name}.zip" "$GITHUB_WORKSPACE/upload_artifacts/"
+                  echo "✓ Created archive: ${app_name}.zip"
+                fi
+              fi
+              cd "$GITHUB_WORKSPACE"
+            fi
           fi
           
           # macOS (ARM64 only)
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             # คัดลอกไฟล์ DMG installer
-            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" -exec sh -c '
-              for file; do
+            find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" 2>/dev/null | while read file; do
+              if [ -f "$file" ]; then
                 filename=$(basename "$file")
                 # ลบเวอร์ชันออกจากชื่อไฟล์
                 newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
                 cp "$file" "upload_artifacts/$newname"
-              done
-            ' sh {} +
+                echo "✓ Copied: $newname"
+              fi
+            done
           
             # สร้างไฟล์ tar.gz จาก .app bundle
-            find src-tauri/target -type d -path "*/bundle/macos/*.app" | while read app_bundle; do
+            find src-tauri/target -type d -path "*/bundle/macos/*.app" 2>/dev/null | while read app_bundle; do
               if [ -d "$app_bundle" ]; then
                 app_name=$(basename "$app_bundle" .app)
                 app_dir=$(dirname "$app_bundle")
                 cd "$app_dir"
                 tar -czf "${app_name}.tar.gz" "$(basename "$app_bundle")"
                 mv "${app_name}.tar.gz" "$GITHUB_WORKSPACE/upload_artifacts/"
+                echo "✓ Created archive: ${app_name}.tar.gz"
+                cd "$GITHUB_WORKSPACE"
               fi
             done
           fi
+          
+          echo ""
+          echo "📦 All prepared files:"
+          ls -lh upload_artifacts/ 2>/dev/null || echo "No files found"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
