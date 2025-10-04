@@ -5,6 +5,7 @@ on:
     branches:
       - main
   workflow_dispatch:
+  workflow_call:  # เพิ่มบรรทัดนี้เพื่อให้เรียกใช้จาก workflow อื่นได้
 
 permissions:
   contents: write
