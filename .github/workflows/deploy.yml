@@ -120,54 +120,56 @@ jobs:
           if [[ "${{ env.IS_NIGHTLY }}" == "true" ]]; then
             CHANGELOG="## 🌙 Nightly Build - $(date +'%Y-%m-%d')
 
-This is an automated nightly build from the latest \`main\` branch.
+          This is an automated nightly build from the latest \`main\` branch.
 
-**⚠️ Warning**: Nightly builds may contain unstable features and bugs.
+          **⚠️ Warning**: Nightly builds may contain unstable features and bugs.
 
-**Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
 
----
+          ---
 
-### 📦 Downloads
+          ### 📦 Downloads
 
-Choose the appropriate installer for your operating system:
+          Choose the appropriate installer for your operating system:
 
-**Windows:**
-- \`.msi\` - Windows installer
+          **Windows:**
+          - \`.msi\` - Windows installer
 
-**macOS (Apple Silicon):**
-- \`.dmg\` - macOS installer
+          **macOS (Apple Silicon):**
+          - \`.dmg\` - macOS installer
 
-**Linux:**
-- \`.deb\` - Debian/Ubuntu package
-- \`.AppImage\` - Universal Linux application
-"
+          **Linux:**
+          - \`.deb\` - Debian/Ubuntu package
+          - \`.AppImage\` - Universal Linux application
+          "
           else
             CHANGELOG="## 🚀 What's Changed
 
-**Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
 
----
+          ---
 
-### 📦 Downloads
+          ### 📦 Downloads
 
-Choose the appropriate installer for your operating system:
+          Choose the appropriate installer for your operating system:
 
-**Windows:**
-- \`.msi\` - Windows installer
+          **Windows:**
+          - \`.msi\` - Windows installer
 
-**macOS (Apple Silicon):**
-- \`.dmg\` - macOS installer
+          **macOS (Apple Silicon):**
+          - \`.dmg\` - macOS installer
 
-**Linux:**
-- \`.deb\` - Debian/Ubuntu package
-- \`.AppImage\` - Universal Linux application
-"
+          **Linux:**
+          - \`.deb\` - Debian/Ubuntu package
+          - \`.AppImage\` - Universal Linux application
+          "
           fi
 
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo 'CHANGELOG<<EOF'
+            echo "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
