@@ -84,8 +84,12 @@ jobs:
       - name: Ensure resources exist (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
-          mkdir -p src-tauri/downloads
-          mkdir -p src-tauri/binaries
+          # สร้าง directories และ placeholder files
+          mkdir -p src-tauri/downloads src-tauri/binaries
+          touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
+
+          echo "📁 Directory structure:"
+          ls -la src-tauri/
 
       - name: Ensure resources exist (Windows)
         if: matrix.os == 'windows-latest'
