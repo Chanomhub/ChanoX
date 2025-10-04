@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [x64]  # TODO: Add arm64 if Tauri supports
+        arch: [x64, arm64]
 
     steps:
       - name: Checkout code
