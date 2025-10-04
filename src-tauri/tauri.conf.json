@@ -39,7 +39,6 @@
   "bundle": {
     "resources": [
       "plugins/**/*",
-      "downloads",
       "binaries/**/*"
     ],
     "active": true,
