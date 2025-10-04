@@ -1,6 +1,6 @@
 [package]
 name = "ChanoX"
-version = "0.9.5"
+version = "0.9.6"
 description = "A ChanoX App"
 authors = ["Chnaomhub"]
 edition = "2021"
