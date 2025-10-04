@@ -75,8 +75,10 @@ jobs:
 
       - name: Security Scan
         run: |
+          cd src-tauri
           cargo install cargo-audit
           cargo audit || echo "Warning: Security scan issues detected"
+          cd ..
 
       - name: Ensure resources exist
         run: |

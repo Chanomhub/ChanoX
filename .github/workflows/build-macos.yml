@@ -82,8 +82,10 @@ jobs:
         if: hashFiles('**/Cargo.toml') != ''
         continue-on-error: true
         run: |
+          cd src-tauri
           cargo install cargo-audit
           cargo audit || echo "Warning: Security scan issues detected"
+          cd ..
 
       - name: Ensure resources exist
         run: |
