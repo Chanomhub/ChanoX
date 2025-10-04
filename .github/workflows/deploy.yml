@@ -38,7 +38,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release_files
-          find artifacts -type f \( -iname "*.deb" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.dmg" -o -name "*.sha256" \) -print0 | while IFS= read -r -d '' file; do
+          find artifacts -type f \( -iname "*.deb" -o -iname "*.rpm" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.nsis" -o -iname "*.app" -o -iname "*.dmg" -o -name "*.sha256" \)  -print0 | while IFS= read -r -d '' file; do
             filename=$(basename "$file")
             if [ ! -f "release_files/$filename" ]; then
               cp "$file" "release_files/"
