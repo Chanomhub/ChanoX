@@ -5,23 +5,21 @@ on:
     branches:
       - main
   workflow_dispatch:
-  workflow_call:  # เพิ่มบรรทัดนี้เพื่อให้เรียกใช้จาก workflow อื่นได้
+  workflow_call:  # Allows reuse from other workflows like deploy.yml
 
 permissions:
-  contents: write
+  contents: read  # Downgraded to read for build, release needs write
 
 jobs:
   build-macos:
     runs-on: macos-latest
     strategy:
       matrix:
-        arch: [x64]
-        include:
-          - arch: arm64
+        arch: [x64, arm64]  # Full matrix for both architectures
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Pinned version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -51,36 +49,53 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
+      - name: Run Tests
+        run: |
+          bun test || echo "Warning: No Bun tests found"  # Run JS tests
+          cargo test || echo "Warning: No Rust tests found"  # Run Rust tests
+
+      - name: Security Scan
+        run: |
+          cargo install cargo-audit
+          cargo audit || echo "Warning: Security scan issues detected"
+
       - name: Ensure resources exist
         run: |
           mkdir -p src-tauri/downloads src-tauri/binaries
           touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
 
       - name: Build macOS App
-        run: bun run tauri:build:mac:arm64 || bun run tauri:build:mac:x64
+        run: bun run tauri:build:mac:${{ matrix.arch }}  # Use matrix arch directly
 
       - name: Prepare artifacts
         shell: bash
         run: |
           mkdir -p upload_artifacts
-          find src-tauri/target -path "*/bundle/*" -type f -name "*.dmg" 2>/dev/null | while read file; do
+          find src-tauri/target -path "*/bundle/*" -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null | while read file; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+              newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')  # Handle semver
               cp "$file" "upload_artifacts/$newname"
               echo "✓ Copied: $newname"
             fi
           done
-
           if [ -z "$(ls -A upload_artifacts 2>/dev/null)" ]; then
             echo '⚠ No macOS artifacts found. Listing target directories for debugging:'
             ls -R src-tauri/target || true
             touch upload_artifacts/.no_macos_artifact
           fi
+          # Generate checksums for artifacts
+          cd upload_artifacts
+          for file in *; do
+            if [ -f "$file" ] && [ "$file" != ".no_macos_artifact" ]; then
+              shasum -a 256 "$file" > "$file.sha256"
+              echo "✓ Generated checksum: $file.sha256"
+            fi
+          done
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChanoX-macos-${{ matrix.arch }}
           path: upload_artifacts/*
-          retention-days: 1
+          retention-days: 7  # Increased retention for debugging

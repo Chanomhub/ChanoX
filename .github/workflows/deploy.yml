@@ -7,10 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read  # Default, override in release job
 
 jobs:
-  # Build all platforms first
   build-linux:
     uses: ./.github/workflows/build-linux.yml
 
@@ -20,12 +19,11 @@ jobs:
   build-windows:
     uses: ./.github/workflows/build-windows.yml
 
-  # Then create release with all artifacts
   release:
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Required for release creation
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,9 +38,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release_files
-
-          # Primary: copy known installer types (case-insensitive for AppImage)
-          find artifacts -type f \( -iname "*.deb" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.dmg" \) -print0 | while IFS= read -r -d '' file; do
+          find artifacts -type f \( -iname "*.deb" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.dmg" -o -name "*.sha256" \) -print0 | while IFS= read -r -d '' file; do
             filename=$(basename "$file")
             if [ ! -f "release_files/$filename" ]; then
               cp "$file" "release_files/"
@@ -51,8 +47,6 @@ jobs:
               echo "⚠ Skipped duplicate: $filename"
             fi
           done
-
-          # Fallback: if no installers found, copy any non-marker file from artifacts
           if [ -z "$(ls -A release_files 2>/dev/null)" ]; then
             echo "⚠ No known installers found; falling back to copying any artifact files (excluding .no_* markers)"
             find artifacts -type f ! -name ".no_*" -print0 | while IFS= read -r -d '' file; do
@@ -63,7 +57,6 @@ jobs:
               fi
             done
           fi
-
           echo "📦 Final files:"
           ls -lah release_files/ || echo "No files prepared"
 
@@ -115,7 +108,6 @@ jobs:
           else
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | head -n 1)
           fi
-
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
@@ -127,8 +119,8 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           CURRENT_TAG="${{ env.NAME }}"
-          PREVIOUS_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
-
+          PREV_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
+          COMMITS=$(git log --oneline --no-merges "${PREV_TAG}..HEAD" | head -n 10 || echo "No changes found")
           if [[ "${{ env.IS_NIGHTLY }}" == "true" ]]; then
             CHANGELOG="## 🌙 Nightly Build - $(date +'%Y-%m-%d')
 
@@ -136,7 +128,10 @@ jobs:
 
           **⚠️ Warning**: Nightly builds may contain unstable features and bugs.
 
-          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...main
+          **Recent Changes**:
+          $COMMITS
+
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...main
 
           ---
 
@@ -146,9 +141,11 @@ jobs:
 
           **Windows:**
           - \`.msi\` - Windows installer
+          - \`.exe\` - Windows portable (if available)
 
           **macOS (Apple Silicon):**
           - \`.dmg\` - macOS installer
+          - \`.app\` - macOS app bundle (if available)
 
           **Linux:**
           - \`.deb\` - Debian/Ubuntu package
@@ -157,7 +154,10 @@ jobs:
           else
             CHANGELOG="## 🚀 What's Changed
 
-          **Full Changelog**: https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
+          **Recent Changes**:
+          $COMMITS
+
+          **Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${CURRENT_TAG}
 
           ---
 
@@ -167,16 +167,17 @@ jobs:
 
           **Windows:**
           - \`.msi\` - Windows installer
+          - \`.exe\` - Windows portable (if available)
 
           **macOS (Apple Silicon):**
           - \`.dmg\` - macOS installer
+          - \`.app\` - macOS app bundle (if available)
 
           **Linux:**
           - \`.deb\` - Debian/Ubuntu package
           - \`.AppImage\` - Universal Linux application
           "
           fi
-
           {
             echo 'CHANGELOG<<EOF'
             echo "$CHANGELOG"
@@ -184,7 +185,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2  # Updated to v2
         with:
           tag_name: ${{ env.NAME }}
           name: ${{ env.NAME }}

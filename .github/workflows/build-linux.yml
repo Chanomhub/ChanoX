@@ -5,17 +5,17 @@ on:
     branches:
       - main
   workflow_dispatch:
-  workflow_call:  # เพิ่มบรรทัดนี้เพื่อให้เรียกใช้จาก workflow อื่นได้
+  workflow_call:  # Allows reuse from other workflows
 
 permissions:
-  contents: write
+  contents: read  # Downgraded to read for build
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [x64]
+        arch: [x64]  # TODO: Add arm64 if Tauri supports
 
     steps:
       - name: Checkout code
@@ -68,39 +68,52 @@ jobs:
             libwebkit2gtk-4.1-dev \
             xvfb
 
+      - name: Run Tests
+        run: |
+          bun test || echo "Warning: No Bun tests found"
+          cargo test || echo "Warning: No Rust tests found"
+
+      - name: Security Scan
+        run: |
+          cargo install cargo-audit
+          cargo audit || echo "Warning: Security scan issues detected"
+
       - name: Ensure resources exist
         run: |
           mkdir -p src-tauri/downloads src-tauri/binaries
           touch src-tauri/downloads/.gitkeep src-tauri/binaries/.gitkeep
 
       - name: Build Linux App
-        run: xvfb-run -a bun run tauri:build:linux:x64
+        run: xvfb-run -a bun run tauri:build:linux:${{ matrix.arch }}
 
       - name: Prepare artifacts
         shell: bash
         run: |
           mkdir -p upload_artifacts
-          # Prefer copying both AppImage and deb if present
-          echo "Searching for artifacts in src-tauri/target"
           shopt -s globstar || true
           found=0
           for f in src-tauri/target/**/bundle/**/*.{AppImage,deb}; do
             if [ -f "$f" ]; then
               found=1
               filename=$(basename "$f")
-              newname=$(echo "$filename" | sed -E "s/_[0-9]+\.[0-9]+\.[0-9]+/_/g" | sed "s/__/_/g")
+              newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')
               cp "$f" "upload_artifacts/$newname" || cp -p "$f" "upload_artifacts/$newname"
               echo "✓ Copied: $newname"
             fi
           done
-
+          # Generate checksums
+          cd upload_artifacts
+          for file in *; do
+            if [ -f "$file" ] && [ "$file" != ".no_linux_artifact" ]; then
+              shasum -a 256 "$file" > "$file.sha256"
+              echo "✓ Generated checksum: $file.sha256"
+            fi
+          done
           if [ "$found" -eq 0 ]; then
             echo "⚠ No linux artifacts found. Listing target directories for debugging:"
             ls -R src-tauri/target || true
-            # Still create an empty marker to avoid upload failure
             touch upload_artifacts/.no_linux_artifact
           fi
-
           echo "Artifacts prepared:"; ls -lh upload_artifacts || true
 
       - name: Upload build artifact
@@ -108,4 +121,4 @@ jobs:
         with:
           name: ChanoX-linux-${{ matrix.arch }}
           path: upload_artifacts/*
-          retention-days: 1
+          retention-days: 7

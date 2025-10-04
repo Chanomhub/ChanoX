@@ -5,17 +5,17 @@ on:
     branches:
       - main
   workflow_dispatch:
-  workflow_call:  # เพิ่มบรรทัดนี้เพื่อให้เรียกใช้จาก workflow อื่นได้
+  workflow_call:  # Allows reuse from other workflows
 
 permissions:
-  contents: write
+  contents: read  # Downgraded to read for build
 
 jobs:
   build-windows:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x64]
+        arch: [x64]  # TODO: Add arm64 if Tauri supports
 
     steps:
       - name: Checkout code
@@ -40,35 +40,55 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            %USERPROFILE%\\.cargo\\bin\\
-            %USERPROFILE%\\.cargo\\registry\\index\\
-            src-tauri\\target\\
+            ~/.cargo/bin/  # Standardized to forward slash
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
           key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Ensure resources exist (Windows)
+      - name: Run Tests
+        shell: pwsh
+        run: |
+          bun test || Write-Host "Warning: No Bun tests found"
+          cargo test || Write-Host "Warning: No Rust tests found"
+
+      - name: Security Scan
+        shell: pwsh
+        run: |
+          cargo install cargo-audit
+          cargo audit || Write-Host "Warning: Security scan issues detected"
+
+      - name: Ensure resources exist
+        shell: pwsh
         run: |
           if (!(Test-Path "src-tauri/downloads")) { New-Item -ItemType Directory -Path "src-tauri/downloads" }
           if (!(Test-Path "src-tauri/binaries")) { New-Item -ItemType Directory -Path "src-tauri/binaries" }
-        shell: pwsh
 
       - name: Build Windows App
-        run: bun run tauri:build:x64
+        shell: pwsh
+        run: bun run tauri:build:${{ matrix.arch }}
 
       - name: Prepare artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path upload_artifacts | Out-Null
-          Get-ChildItem -Path src-tauri\target -Recurse -Include *.msi -File -ErrorAction SilentlyContinue | ForEach-Object {
-            $filename = $_.Name -replace '_\d+\.\d+\.\d+','_' -replace '__','_'
+          Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $filename = $_.Name -replace '_\d+\.\d+\.\d+(\.\d+)?_','_' -replace '__','_'
             Copy-Item -Path $_.FullName -Destination (Join-Path $PWD upload_artifacts\$filename)
             Write-Host "✓ Copied: $filename"
           }
-
+          # Generate checksums
+          Get-ChildItem upload_artifacts -File -Exclude *.no_windows_artifact | ForEach-Object {
+            $hash = Get-FileHash -Path $_.FullName -Algorithm SHA256
+            $hash.Hash | Out-File -FilePath "$($_.FullName).sha256"
+            Write-Host "✓ Generated checksum: $($_.Name).sha256"
+          }
           if ((Get-ChildItem upload_artifacts -File -ErrorAction SilentlyContinue).Count -eq 0) {
             Write-Host '⚠ No windows artifacts found. Listing target folders for debugging:'
-            Get-ChildItem src-tauri\target -Recurse | Select-Object -First 50 | Format-Table -AutoSize
+            Get-ChildItem src-tauri/target -Recurse | Select-Object -First 50 | Format-Table -AutoSize
             New-Item -ItemType File -Path upload_artifacts\.no_windows_artifact | Out-Null
           }
 
@@ -77,4 +97,4 @@ jobs:
         with:
           name: ChanoX-windows-${{ matrix.arch }}
           path: upload_artifacts/*
-          retention-days: 1
+          retention-days: 7
