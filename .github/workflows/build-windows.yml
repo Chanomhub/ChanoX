@@ -26,6 +26,21 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Rust Target
+        shell: pwsh
+        run: |
+          if ("${{ matrix.arch }}" -eq "arm64") {
+            Write-Host "Installing aarch64-pc-windows-msvc target..."
+            rustup target add aarch64-pc-windows-msvc
+            Write-Host "✅ Installed aarch64-pc-windows-msvc target"
+          } else {
+            Write-Host "Installing x86_64-pc-windows-msvc target..."
+            rustup target add x86_64-pc-windows-msvc
+            Write-Host "✅ Installed x86_64-pc-windows-msvc target"
+          }
+          Write-Host "`nInstalled targets:"
+          rustup target list --installed
+
       - name: Cache Bun dependencies
         uses: actions/cache@v4
         with:
@@ -37,7 +52,6 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Cache Rust
-        if: hashFiles('**/Cargo.toml') != ''  # Only cache if Cargo.toml exists
         uses: actions/cache@v4
         with:
           path: |
@@ -58,7 +72,7 @@ jobs:
 
       - name: Run Tests
         shell: pwsh
-        continue-on-error: true  # Prevent pipeline failure
+        continue-on-error: true
         run: |
           bun test || Write-Host "Warning: No Bun tests found. Ensure test files have .test, _test_, .spec, or _spec_ in the filename."
           if (Test-Path "Cargo.toml") {
@@ -68,7 +82,7 @@ jobs:
           }
 
       - name: Security Scan
-        if: hashFiles('**/Cargo.toml') != ''  # Only run if Cargo.toml exists
+        if: hashFiles('**/Cargo.toml') != ''
         shell: pwsh
         continue-on-error: true
         run: |
@@ -92,20 +106,18 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path upload_artifacts | Out-Null
 
-          # Only get files from bundle directories (more specific path)
           Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe -File -ErrorAction SilentlyContinue | Where-Object {
             $_.FullName -match '\\bundle\\' -or $_.FullName -match '\\release\\bundle\\'
           } | ForEach-Object {
             $filename = $_.Name -replace '_\d+\.\d+\.\d+(\.\d+)?_','_' -replace '__','_'
             Copy-Item -Path $_.FullName -Destination (Join-Path $PWD upload_artifacts\$filename)
-            Write-Host "✓ Copied: $filename"
+            Write-Host "✅ Copied: $filename"
           }
 
-          # Generate checksums
           Get-ChildItem upload_artifacts -File -Exclude *.no_windows_artifact | ForEach-Object {
             $hash = Get-FileHash -Path $_.FullName -Algorithm SHA256
             $hash.Hash | Out-File -FilePath "$($_.FullName).sha256"
-            Write-Host "✓ Generated checksum: $($_.Name).sha256"
+            Write-Host "✅ Generated checksum: $($_.Name).sha256"
           }
 
           if ((Get-ChildItem upload_artifacts -File -ErrorAction SilentlyContinue).Count -eq 0) {

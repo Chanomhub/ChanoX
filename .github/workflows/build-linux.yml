@@ -5,10 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
-  workflow_call:  # Allows reuse from other workflows
+  workflow_call:
 
 permissions:
-  contents: read  # Downgraded to read for build
+  contents: read
 
 jobs:
   build-linux:
@@ -49,6 +49,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
+      - name: Install Rust Target
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            rustup target add aarch64-unknown-linux-gnu
+          else
+            rustup target add x86_64-unknown-linux-gnu
+          fi
+
       - name: Install Linux Dependencies
         run: |
           sudo apt-get update
@@ -67,6 +75,13 @@ jobs:
             libsoup-3.0-dev \
             libwebkit2gtk-4.1-dev \
             xvfb
+
+      - name: Install ARM64 Cross Compiler
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
 
       - name: Run Tests
         run: |
@@ -100,19 +115,18 @@ jobs:
               filename=$(basename "$f")
               newname=$(echo "$filename" | sed -E 's/_[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?_/_/g' | sed 's/__/_/g')
               cp "$f" "upload_artifacts/$newname" || cp -p "$f" "upload_artifacts/$newname"
-              echo "✓ Copied: $newname"
+              echo "✅ Copied: $newname"
             fi
           done
-          # Generate checksums
           cd upload_artifacts
           for file in *; do
             if [ -f "$file" ] && [ "$file" != ".no_linux_artifact" ]; then
               shasum -a 256 "$file" > "$file.sha256"
-              echo "✓ Generated checksum: $file.sha256"
+              echo "✅ Generated checksum: $file.sha256"
             fi
           done
           if [ "$found" -eq 0 ]; then
-            echo "⚠ No linux artifacts found. Listing target directories for debugging:"
+            echo "⚠️ No linux artifacts found. Listing target directories for debugging:"
             ls -R src-tauri/target || true
             touch upload_artifacts/.no_linux_artifact
           fi
