@@ -5,7 +5,7 @@
 - **Cross-platform support** - Works on Windows, macOS, and Linux
 - **Lightning-fast performance** - Built with Tauri for a lightweight footprint
 - **Modern tech stack** - React, TypeScript, and Vite for rapid development
-- **Seamless integration** - Pre-configured to work with all ChanomHub APIs
+- **Seamless integration** - Pre-configured to work with all ChanoX APIs
 - **Type-safe development** - Strong typing for maintainable and robust code
 
 
@@ -20,8 +20,8 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Chanomhub/Chanomhub-Desktop.git
-   cd ChanomHub
+   git clone https://github.com/ChanoX/ChanoX-Desktop.git
+   cd ChanoX
    ```
 
 2. Install dependencies:
@@ -49,7 +49,7 @@ This will generate platform-specific installers in the `src-tauri/target/release
 ### Project Structure
 
 ```
-ChanomHub/
+ChanoX/
 ├── src/              # React frontend code
 ├── src-tauri/        # Tauri backend code
 ├── public/           # Static assets
@@ -63,8 +63,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support 🚉
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/Chanomhub/Chanomhub-Desktop/issues) on GitHub.
+If you encounter any issues or have questions, please [open an issue](https://github.com/ChanoX/ChanoX-Desktop/issues) on GitHub.
 
 ---
 
-Made with ❤️ by the ChanomHub community
+Made with ❤️ by the ChanoX community

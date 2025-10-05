@@ -1,16 +1,24 @@
 import React from 'react';
 import { ArticleFormData } from './types/types.ts';
-import ImageSelector from './ImageSelector';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Toggle } from "@/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Bold, Italic, Underline, Strikethrough, Heading1, Heading2, Heading3, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Link2, Image as ImageIcon, Table as TableIcon, Minus, Undo, Redo, Code as CodeIcon, Quote, Highlighter } from "lucide-react";
 
 // Replace StarterKit with individual extensions
 import Document from '@tiptap/extension-document';
 import Paragraph from '@tiptap/extension-paragraph';
 import Text from '@tiptap/extension-text';
-import Bold from '@tiptap/extension-bold';
-import Italic from '@tiptap/extension-italic';
-import Strike from '@tiptap/extension-strike';
-import Code from '@tiptap/extension-code';
+import BoldExt from '@tiptap/extension-bold';
+import ItalicExt from '@tiptap/extension-italic';
+import StrikeExt from '@tiptap/extension-strike';
+import CodeExt from '@tiptap/extension-code';
 import Heading from '@tiptap/extension-heading';
 import BulletList from '@tiptap/extension-bullet-list';
 import OrderedList from '@tiptap/extension-ordered-list';
@@ -23,7 +31,7 @@ import Gapcursor from '@tiptap/extension-gapcursor';
 import History from '@tiptap/extension-history';
 
 // Your other extensions
-import Underline from '@tiptap/extension-underline';
+import UnderlineExt from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Color from '@tiptap/extension-color';
 import TextStyle from '@tiptap/extension-text-style';
@@ -58,68 +66,22 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                                                  }) => {
     const editor = useEditor({
         extensions: [
-            // StarterKit equivalent extensions
-            Document,
-            Paragraph,
-            Text,
-            Bold,
-            Italic,
-            Strike,
-            Code,
-            Heading,
-            BulletList,
-            OrderedList,
-            ListItem,
-            Blockquote,
-            HorizontalRule,
-            HardBreak,
-            Dropcursor,
-            Gapcursor,
-            History,
-
-            // Your custom extensions
-            Underline,
-            TextStyle,
-            Color,
-            Highlight.configure({
-                multicolor: true,
-            }),
-            TextAlign.configure({
-                types: ['heading', 'paragraph'],
-            }),
-            Link.configure({
-                openOnClick: false,
-                HTMLAttributes: {
-                    class: 'text-primary hover:text-primary-focus underline',
-                },
-            }),
-            Image.configure({
-                HTMLAttributes: {
-                    class: 'max-w-full h-auto rounded-lg',
-                },
-            }),
-            Table.configure({
-                resizable: true,
-            }),
-            TableRow,
-            TableHeader,
-            TableCell,
-            CodeBlockLowlight.configure({
-                lowlight,
-                HTMLAttributes: {
-                    class: 'bg-base-300 rounded-lg p-4 text-sm',
-                },
-            }),
+            Document, Paragraph, Text, BoldExt, ItalicExt, StrikeExt, CodeExt, Heading, BulletList, OrderedList, ListItem, Blockquote, HorizontalRule, HardBreak, Dropcursor, Gapcursor, History, UnderlineExt, TextStyle, Color,
+            Highlight.configure({ multicolor: true }),
+            TextAlign.configure({ types: ['heading', 'paragraph'] }),
+            Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-primary hover:text-primary-focus underline' } }),
+            Image.configure({ HTMLAttributes: { class: 'max-w-full h-auto rounded-lg' } }),
+            Table.configure({ resizable: true }),
+            TableRow, TableHeader, TableCell,
+            CodeBlockLowlight.configure({ lowlight, HTMLAttributes: { class: 'bg-base-300 rounded-lg p-4 text-sm' } }),
         ],
         content: formData.body,
         onUpdate: ({ editor }) => {
-            handleChange({
-                target: { name: 'body', value: editor.getHTML() },
-            } as React.ChangeEvent<HTMLTextAreaElement>);
+            handleChange({ target: { name: 'body', value: editor.getHTML() } } as React.ChangeEvent<HTMLTextAreaElement>);
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none p-4 min-h-[300px] max-w-none',
             },
         },
     });
@@ -142,531 +104,162 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
         editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
     };
 
-    const ToolbarButton = ({
-                               onClick,
-                               isActive = false,
-                               disabled = false,
-                               title,
-                               children
-                           }: {
-        onClick: () => void;
-        isActive?: boolean;
-        disabled?: boolean;
-        title: string;
-        children: React.ReactNode;
-    }) => (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className={`btn btn-sm tooltip ${
-                isActive
-                    ? 'btn-primary'
-                    : 'btn-ghost hover:btn-ghost-focus'
-            } ${disabled ? 'btn-disabled' : ''}`}
-            data-tip={title}
-        >
-            {children}
-        </button>
-    );
-
     return (
-        <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-                <h2 className="card-title text-2xl font-bold justify-center mb-6 text-base-content">
-                    ✨ กรอกข้อมูลบทความ
-                </h2>
-
-                <form className="space-y-6">
-                    {/* Main Content Section */}
-                    <div className="space-y-8">
-                        {/* Basic Information Section */}
-                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
-                                <span
-                                    className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-content text-sm">📋</span>
-                                ข้อมูลพื้นฐาน
-                            </h3>
-
-                            <div className="space-y-6">
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-primary">📝</span> หัวข้อบทความ
-                                        </span>
-                                        <span className="badge badge-error badge-sm">จำเป็น</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="title"
-                                        value={formData.title}
-                                        onChange={handleChange}
-                                        placeholder="กรอกหัวข้อที่น่าสนใจ..."
-                                        className="input input-bordered input-primary w-full"
-                                        required
-                                    />
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-2xl font-bold justify-center mb-6">✨ กรอกข้อมูลบทความ</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="space-y-4">
+                    <div>
+                        <Label htmlFor="title">หัวข้อบทความ</Label>
+                        <Input id="title" name="title" value={formData.title} onChange={handleChange} placeholder="กรอกหัวข้อที่น่าสนใจ..." required />
+                    </div>
+                    <div>
+                        <Label htmlFor="description">คำอธิบายสั้น</Label>
+                        <Textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="เขียนคำอธิบายสั้นๆ ที่ดึงดูดความสนใจ..." required />
+                    </div>
+                    <div>
+                        <Label>เนื้อหาบทความ</Label>
+                        <div className="border rounded-md">
+                            <div className="p-2 border-b flex flex-wrap items-center gap-2">
+                                <ToggleGroup type="multiple" size="sm">
+                                    <Toggle pressed={editor?.isActive('bold')} onPressedChange={() => editor?.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('italic')} onPressedChange={() => editor?.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('underline')} onPressedChange={() => editor?.chain().focus().toggleUnderline().run()}><Underline className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('strike')} onPressedChange={() => editor?.chain().focus().toggleStrike().run()}><Strikethrough className="h-4 w-4" /></Toggle>
+                                </ToggleGroup>
+                                <ToggleGroup type="single" size="sm" defaultValue="paragraph">
+                                    <ToggleGroupItem value="h1" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="h-4 w-4" /></ToggleGroupItem>
+                                    <ToggleGroupItem value="h2" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="h-4 w-4" /></ToggleGroupItem>
+                                    <ToggleGroupItem value="h3" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 className="h-4 w-4" /></ToggleGroupItem>
+                                </ToggleGroup>
+                                <ToggleGroup type="single" size="sm" defaultValue="left">
+                                    <ToggleGroupItem value="left" onClick={() => editor?.chain().focus().setTextAlign('left').run()}><AlignLeft className="h-4 w-4" /></ToggleGroupItem>
+                                    <ToggleGroupItem value="center" onClick={() => editor?.chain().focus().setTextAlign('center').run()}><AlignCenter className="h-4 w-4" /></ToggleGroupItem>
+                                    <ToggleGroupItem value="right" onClick={() => editor?.chain().focus().setTextAlign('right').run()}><AlignRight className="h-4 w-4" /></ToggleGroupItem>
+                                </ToggleGroup>
+                                <ToggleGroup type="multiple" size="sm">
+                                    <Toggle pressed={editor?.isActive('bulletList')} onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('orderedList')} onPressedChange={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('blockquote')} onPressedChange={() => editor?.chain().focus().toggleBlockquote().run()}><Quote className="h-4 w-4" /></Toggle>
+                                </ToggleGroup>
+                                <ToggleGroup type="multiple" size="sm">
+                                    <Toggle pressed={editor?.isActive('code')} onPressedChange={() => editor?.chain().focus().toggleCode().run()}><CodeIcon className="h-4 w-4" /></Toggle>
+                                    <Toggle pressed={editor?.isActive('highlight')} onPressedChange={() => editor?.chain().focus().toggleHighlight({ color: '#fef08a' }).run()}><Highlighter className="h-4 w-4" /></Toggle>
+                                </ToggleGroup>
+                                <div className="flex gap-1">
+                                    <Button variant="ghost" size="sm" onClick={addLink}><Link2 className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={addImage}><ImageIcon className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={insertTable}><TableIcon className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={() => editor?.chain().focus().setHorizontalRule().run()}><Minus className="h-4 w-4" /></Button>
                                 </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-success">📄</span> คำอธิบายสั้น
-                                        </span>
-                                        <span className="badge badge-error badge-sm">จำเป็น</span>
-                                    </label>
-                                    <textarea
-                                        name="description"
-                                        value={formData.description}
-                                        onChange={handleChange}
-                                        placeholder="เขียนคำอธิบายสั้นๆ ที่ดึงดูดความสนใจ..."
-                                        className="textarea textarea-bordered textarea-primary w-full h-24 resize-none"
-                                        required
-                                    />
-                                </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-secondary">✍️</span> เนื้อหาบทความ
-                                        </span>
-                                        <span className="badge badge-error badge-sm">จำเป็น</span>
-                                    </label>
-                                    <div className="border-2 border-base-300 rounded-xl overflow-hidden bg-base-100 focus-within:border-primary transition-all duration-200">
-                                        {/* Enhanced Rich Text Editor Toolbar */}
-                                        <div className="bg-base-200 p-3 border-b border-base-300">
-                                            <div className="flex flex-wrap gap-2">
-                                                {/* Text Formatting */}
-                                                <div className="flex gap-1 border-r border-base-300 pr-2">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleBold().run()}
-                                                        isActive={editor?.isActive('bold')}
-                                                        title="ตัวหนา (Ctrl+B)"
-                                                    >
-                                                        <strong>B</strong>
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleItalic().run()}
-                                                        isActive={editor?.isActive('italic')}
-                                                        title="ตัวเอียง (Ctrl+I)"
-                                                    >
-                                                        <em>I</em>
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleUnderline().run()}
-                                                        isActive={editor?.isActive('underline')}
-                                                        title="ขีดเส้นใต้ (Ctrl+U)"
-                                                    >
-                                                        <u>U</u>
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleStrike().run()}
-                                                        isActive={editor?.isActive('strike')}
-                                                        title="ขีดทับ"
-                                                    >
-                                                        <s>S</s>
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Headings */}
-                                                <div className="flex gap-1 border-r border-base-300 pr-2">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-                                                        isActive={editor?.isActive('heading', { level: 1 })}
-                                                        title="หัวข้อใหญ่"
-                                                    >
-                                                        H1
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                                                        isActive={editor?.isActive('heading', { level: 2 })}
-                                                        title="หัวข้อกลาง"
-                                                    >
-                                                        H2
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-                                                        isActive={editor?.isActive('heading', { level: 3 })}
-                                                        title="หัวข้อเล็ก"
-                                                    >
-                                                        H3
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Text Alignment */}
-                                                <div className="flex gap-1 border-r border-base-300 pr-2">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().setTextAlign('left').run()}
-                                                        isActive={editor?.isActive({ textAlign: 'left' })}
-                                                        title="จัดซ้าย"
-                                                    >
-                                                        ◀
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().setTextAlign('center').run()}
-                                                        isActive={editor?.isActive({ textAlign: 'center' })}
-                                                        title="จัดกลาง"
-                                                    >
-                                                        ▪
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().setTextAlign('right').run()}
-                                                        isActive={editor?.isActive({ textAlign: 'right' })}
-                                                        title="จัดขวา"
-                                                    >
-                                                        ▶
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Lists */}
-                                                <div className="flex gap-1 border-r border-base-300 pr-2">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                                                        isActive={editor?.isActive('bulletList')}
-                                                        title="รายการแบบจุด"
-                                                    >
-                                                        •
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                                                        isActive={editor?.isActive('orderedList')}
-                                                        title="รายการแบบตัวเลข"
-                                                    >
-                                                        1.
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Highlighting */}
-                                                <div className="flex gap-1 border-r border-base-300 pr-2">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleHighlight({ color: '#fef08a' }).run()}
-                                                        isActive={editor?.isActive('highlight')}
-                                                        title="ไฮไลต์"
-                                                    >
-                                                        🖍️
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleCode().run()}
-                                                        isActive={editor?.isActive('code')}
-                                                        title="โค้ดในบรรทัด"
-                                                    >
-                                                        &lt;/&gt;
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-                                                        isActive={editor?.isActive('codeBlock')}
-                                                        title="บล็อกโค้ด"
-                                                    >
-                                                        {'{ }'}
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Advanced Features */}
-                                                <div className="flex gap-1">
-                                                    <ToolbarButton
-                                                        onClick={addLink}
-                                                        isActive={editor?.isActive('link')}
-                                                        title="เพิ่มลิงก์"
-                                                    >
-                                                        🔗
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={addImage}
-                                                        title="เพิ่มรูปภาพ"
-                                                    >
-                                                        🖼️
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={insertTable}
-                                                        title="เพิ่มตาราง"
-                                                    >
-                                                        📊
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().setHorizontalRule().run()}
-                                                        title="เส้นคั่น"
-                                                    >
-                                                        ➖
-                                                    </ToolbarButton>
-                                                </div>
-
-                                                {/* Undo/Redo */}
-                                                <div className="flex gap-1 border-l border-base-300 pl-2 ml-auto">
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().undo().run()}
-                                                        disabled={!editor?.can().undo()}
-                                                        title="ยกเลิก (Ctrl+Z)"
-                                                    >
-                                                        ↶
-                                                    </ToolbarButton>
-                                                    <ToolbarButton
-                                                        onClick={() => editor?.chain().focus().redo().run()}
-                                                        disabled={!editor?.can().redo()}
-                                                        title="ทำซ้ำ (Ctrl+Y)"
-                                                    >
-                                                        ↷
-                                                    </ToolbarButton>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Editor Content */}
-                                        <EditorContent
-                                            editor={editor}
-                                            className="p-4 min-h-[300px] max-w-none focus:outline-none text-base-content"
-                                        />
-                                    </div>
-
-                                    {/* Table Controls (แสดงเมื่อเลือกตาราง) */}
-                                    {editor?.isActive('table') && (
-                                        <div className="bg-base-300 p-3 rounded-lg mt-2">
-                                            <div className="flex gap-2 flex-wrap">
-                                                <span className="text-sm font-medium">ตาราง:</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().addColumnBefore().run()}
-                                                    className="btn btn-xs btn-ghost"
-                                                >
-                                                    + คอลัมน์ซ้าย
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().addColumnAfter().run()}
-                                                    className="btn btn-xs btn-ghost"
-                                                >
-                                                    + คอลัมน์ขวา
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().addRowBefore().run()}
-                                                    className="btn btn-xs btn-ghost"
-                                                >
-                                                    + แถวบน
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().addRowAfter().run()}
-                                                    className="btn btn-xs btn-ghost"
-                                                >
-                                                    + แถวล่าง
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().deleteColumn().run()}
-                                                    className="btn btn-xs btn-error"
-                                                >
-                                                    ลบคอลัมน์
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().deleteRow().run()}
-                                                    className="btn btn-xs btn-error"
-                                                >
-                                                    ลบแถว
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => editor?.chain().focus().deleteTable().run()}
-                                                    className="btn btn-xs btn-error"
-                                                >
-                                                    ลบตาราง
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-warning">🔢</span> เวอร์ชัน
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="ver"
-                                        value={formData.ver}
-                                        onChange={handleChange}
-                                        placeholder="เช่น v1.0.0, v2.1.5"
-                                        className="input input-bordered w-full"
-                                    />
+                                <div className="flex gap-1 ml-auto">
+                                    <Button variant="ghost" size="sm" onClick={() => editor?.chain().focus().undo().run()} disabled={!editor?.can().undo()}><Undo className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={() => editor?.chain().focus().redo().run()} disabled={!editor?.can().redo()}><Redo className="h-4 w-4" /></Button>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Additional Information Section */}
-                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
-                                <span
-                                    className="w-8 h-8 bg-success rounded-lg flex items-center justify-center text-success-content text-sm">🏷️</span>
-                                ข้อมูลเพิ่มเติม
-                            </h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-info">🏷️</span> แท็ก
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="tagList"
-                                        value={formData.tagList}
-                                        onChange={handleChange}
-                                        placeholder="React, JavaScript, TypeScript"
-                                        className="input input-bordered input-info w-full"
-                                    />
-                                </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-secondary">📂</span> หมวดหมู่
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="categoryList"
-                                        value={formData.categoryList}
-                                        onChange={handleChange}
-                                        placeholder="เทคโนโลยี, บันเทิง, เกม"
-                                        className="input input-bordered input-secondary w-full"
-                                    />
-                                </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-accent">💻</span> แพลตฟอร์ม
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm">คั่นด้วยคอมม่า</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="platformList"
-                                        value={formData.platformList}
-                                        onChange={handleChange}
-                                        placeholder="Windows, Mac, Linux, Android"
-                                        className="input input-bordered input-accent w-full"
-                                    />
-                                </div>
-
-                                <div className="form-control">
-                                    <label className="flex items-center justify-between mb-2">
-                                        <span className="text-base-content font-medium flex items-center gap-2">
-                                            <span className="text-error">⚙️</span> Engine
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm">ไม่จำเป็น</span>
-                                    </label>
-                                    <select
-                                        name="engine"
-                                        value={formData.engine || ''}
-                                        onChange={handleChange}
-                                        className="select select-bordered w-full"
-                                    >
-                                        <option value="">ไม่ระบุ</option>
-                                        <option value="RENPY">Ren'Py</option>
-                                        <option value="RPGM">RPG Maker</option>
-                                        <option value="UNITY">Unity</option>
-                                        <option value="UNREAL">Unreal Engine</option>
-                                        <option value="TyranoBuilder">TyranoBuilder</option>
-                                        <option value="WOLFRPG">Wolf RPG</option>
-                                        <option value="KIRIKIRI">Kirikiri</option>
-                                        <option value="Godot">Godot</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Image Upload Section */}
-                        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-                            <h3 className="text-xl font-semibold text-base-content mb-6 flex items-center gap-2">
-                                <span
-                                    className="w-8 h-8 bg-warning rounded-lg flex items-center justify-center text-warning-content text-sm">🖼️</span>
-                                รูปภาพประกอบ
-                            </h3>
-
-                            <div className="space-y-6">
-                                <ImageSelector
-                                    label="รูปภาพหลัก"
-                                    imageUrl={formData.mainImage}
-                                    imagePath={formData.mainImageFile}
-                                    name="mainImage"
-                                    selectType="mainImageFile"
-                                    handleChange={handleChange}
-                                    handleFileSelect={handleFileSelect}
-                                    placeholder="ระบุ URL หรือเลือกไฟล์"
-                                    isDisabled={!!formData.mainImageFile}
-                                    required={true}
-                                />
-
-                                <ImageSelector
-                                    label="รูปภาพเพิ่มเติม"
-                                    imageUrl={formData.images}
-                                    imagePaths={formData.additionalImageFiles}
-                                    name="images"
-                                    selectType="additionalImageFiles"
-                                    handleChange={handleChange}
-                                    handleFileSelect={handleFileSelect}
-                                    placeholder="ระบุ URLs (คั่นด้วยคอมม่า)"
-                                    isDisabled={formData.additionalImageFiles.length > 0}
-                                    isMultiple={true}
-                                />
-                                <ImageSelector
-                                    label="รูปภาพปก"
-                                    imageUrl={formData.coverImage}
-                                    imagePath={formData.coverImageFile}
-                                    name="coverImage"
-                                    selectType="coverImageFile"
-                                    handleChange={handleChange}
-                                    handleFileSelect={handleFileSelect}
-                                    placeholder="ระบุ URL ภาพปก"
-                                    isDisabled={!!formData.coverImageFile}
-                                />
-
-                                <ImageSelector
-                                    label="ภาพพื้นหลัง"
-                                    imageUrl={formData.backgroundImage}
-                                    imagePath={formData.thumbnailImageFile}
-                                    name="backgroundImage"
-                                    selectType="thumbnailImageFile"
-                                    handleChange={handleChange}
-                                    handleFileSelect={handleFileSelect}
-                                    placeholder="ระบุ URL พื้นหลัง"
-                                    isDisabled={!!formData.thumbnailImageFile}
-                                />
-                            </div>
+                            <EditorContent editor={editor} />
                         </div>
                     </div>
+                    <div>
+                        <Label htmlFor="ver">เวอร์ชัน</Label>
+                        <Input id="ver" name="ver" value={formData.ver} onChange={handleChange} placeholder="เช่น v1.0.0, v2.1.5" />
+                    </div>
+                </div>
 
-                    {/* Submit Button */}
-                    <div className="card-actions justify-center pt-6">
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            className={`btn btn-primary btn-wide btn-lg ${
-                                isLoading ? 'loading' : ''
-                            }`}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <span className="loading loading-spinner loading-sm"></span>
-                                    กำลังส่ง...
-                                </>
-                            ) : (
-                                <>
-                                    ✨ สร้างบทความ
-                                </>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>ข้อมูลเพิ่มเติม</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <Label htmlFor="tagList">แท็ก</Label>
+                            <Input id="tagList" name="tagList" value={formData.tagList} onChange={handleChange} placeholder="React, JavaScript, TypeScript" />
+                        </div>
+                        <div>
+                            <Label htmlFor="categoryList">หมวดหมู่</Label>
+                            <Input id="categoryList" name="categoryList" value={formData.categoryList} onChange={handleChange} placeholder="เทคโนโลยี, บันเทิง, เกม" />
+                        </div>
+                        <div>
+                            <Label htmlFor="platformList">แพลตฟอร์ม</Label>
+                            <Input id="platformList" name="platformList" value={formData.platformList} onChange={handleChange} placeholder="Windows, Mac, Linux, Android" />
+                        </div>
+                        <div>
+                            <Label htmlFor="engine">Engine</Label>
+                            <Select name="engine" value={formData.engine || 'none'} onValueChange={(value) => handleChange({ target: { name: 'engine', value: value === 'none' ? '' : value } } as any)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="ไม่ระบุ" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">ไม่ระบุ</SelectItem>
+                                    <SelectItem value="RENPY">Ren'Py</SelectItem>
+                                    <SelectItem value="RPGM">RPG Maker</SelectItem>
+                                    <SelectItem value="UNITY">Unity</SelectItem>
+                                    <SelectItem value="UNREAL">Unreal Engine</SelectItem>
+                                    <SelectItem value="TyranoBuilder">TyranoBuilder</SelectItem>
+                                    <SelectItem value="WOLFRPG">Wolf RPG</SelectItem>
+                                    <SelectItem value="KIRIKIRI">Kirikiri</SelectItem>
+                                    <SelectItem value="Godot">Godot</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>รูปภาพประกอบ</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div>
+                            <Label>รูปภาพหลัก</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleFileSelect('mainImageFile')}>เลือกรูปภาพ</Button>
+                                <Input name="mainImage" value={formData.mainImage} onChange={handleChange} disabled={!!formData.mainImageFile} placeholder="ระบุ URL หรือเลือกไฟล์" required />
+                            </div>
+                            {formData.mainImageFile && <p className="text-xs text-gray-500">Selected: {formData.mainImageFile}</p>}
+                        </div>
+                        <div>
+                            <Label>รูปภาพเพิ่มเติม</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleFileSelect('additionalImageFiles')}>เลือกรูปภาพเพิ่มเติม</Button>
+                                <Input name="images" value={formData.images} onChange={handleChange} disabled={formData.additionalImageFiles.length > 0} placeholder="ระบุ URLs (คั่นด้วยคอมม่า)" />
+                            </div>
+                            {formData.additionalImageFiles.length > 0 && (
+                                <ul className="text-xs text-gray-500 list-disc list-inside">
+                                    {formData.additionalImageFiles.map((file, index) => (
+                                        <li key={index}>{file}</li>
+                                    ))}
+                                </ul>
                             )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                        </div>
+                        <div>
+                            <Label>รูปภาพปก</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleFileSelect('coverImageFile')}>เลือกรูปภาพ</Button>
+                                <Input name="coverImage" value={formData.coverImage} onChange={handleChange} disabled={!!formData.coverImageFile} placeholder="ระบุ URL ภาพปก" />
+                            </div>
+                            {formData.coverImageFile && <p className="text-xs text-gray-500">Selected: {formData.coverImageFile}</p>}
+                        </div>
+                        <div>
+                            <Label>ภาพพื้นหลัง</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleFileSelect('thumbnailImageFile')}>เลือกรูปภาพ</Button>
+                                <Input name="backgroundImage" value={formData.backgroundImage} onChange={handleChange} disabled={!!formData.thumbnailImageFile} placeholder="ระบุ URL พื้นหลัง" />
+                            </div>
+                            {formData.thumbnailImageFile && <p className="text-xs text-gray-500">Selected: {formData.thumbnailImageFile}</p>}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <div className="flex justify-center pt-6">
+                    <Button type="button" onClick={handleSubmit} disabled={isLoading} size="lg">
+                        {isLoading ? 'กำลังส่ง...' : 'สร้างบทความ'}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 

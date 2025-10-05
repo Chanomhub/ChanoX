@@ -6,9 +6,9 @@ import { ask, message } from '@tauri-apps/plugin-dialog';
 import { IconRefresh } from "@tabler/icons-react";
 
 
-const LOCAL_STORAGE_KEYS = {
-    TOKEN: 'chanomhub_token',
-    DOWNLOAD_DIR: 'chanomhub_download_dir'
+export const LOCAL_STORAGE_KEYS = {
+    TOKEN: 'chanox_token',
+    DOWNLOAD_DIR: 'chanox_download_dir'
 };
 
 export default function Settings() {

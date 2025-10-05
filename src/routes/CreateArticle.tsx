@@ -1,13 +1,14 @@
+
 import React, { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import ArticleForm from './components/articles/ArticleForm';
 import DownloadForm from './components/articles/DownloadForm';
 import SummaryStep from './components/articles/SummaryStep';
-import StepIndicator from './components/articles/StepIndicator';
-import ErrorAlert from './components/articles/ErrorAlert';
-import LoadingIndicator from './components/articles/LoadingIndicator';
 import { ArticleFormData, ArticlePayload, DownloadData, ArticleDownload } from './components/articles/types/types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LocalDownload {
     id: string;
@@ -18,7 +19,7 @@ interface LocalDownload {
 }
 
 const CreateArticle: React.FC = () => {
-    const [step, setStep] = useState<number>(1);
+    const [step, setStep] = useState<string>("step1");
     const [formData, setFormData] = useState<ArticleFormData>({
         title: '',
         description: '',
@@ -215,7 +216,7 @@ const CreateArticle: React.FC = () => {
             const data = await result.json();
             setResponse(data);
             setArticleId(data.article.id);
-            setStep(2);
+            setStep("step2");
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : 'An unexpected error occurred while creating the article';
@@ -365,11 +366,11 @@ const CreateArticle: React.FC = () => {
         if (localDownloads.length > 0) {
             await handleSaveAllDownloads();
         }
-        setStep(3);
+        setStep("step3");
     };
 
     const resetForm = () => {
-        setStep(1);
+        setStep("step1");
         setFormData({
             title: '',
             description: '',
@@ -400,45 +401,60 @@ const CreateArticle: React.FC = () => {
 
     return (
         <div className="container max-w-4xl mx-auto p-6">
-            <h1 className="text-3xl font-bold text-center mb-4">📝 สร้างบทความใหม่</h1>
-            <StepIndicator currentStep={step} />
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-3xl font-bold text-center mb-4">📝 สร้างบทความใหม่</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Tabs value={step} onValueChange={setStep} className="w-full">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="step1">Article</TabsTrigger>
+                            <TabsTrigger value="step2" disabled={!articleId}>Download</TabsTrigger>
+                            <TabsTrigger value="step3" disabled={!articleId}>Summary</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="step1">
+                            <ArticleForm
+                                formData={formData}
+                                handleChange={handleArticleFormChange}
+                                handleFileSelect={handleFileSelect}
+                                handleSubmit={handleSubmitArticle}
+                                isLoading={isLoading}
+                            />
+                        </TabsContent>
+                        <TabsContent value="step2">
+                            <DownloadForm
+                                downloadData={downloadData}
+                                handleChange={handleDownloadFormChange}
+                                handleSubmit={handleSubmitDownload}
+                                downloadLinks={downloadLinks}
+                                localDownloads={localDownloads}
+                                onAddLocal={handleAddLocalDownload}
+                                onEditLocal={handleEditLocalDownload}
+                                onDeleteLocal={handleDeleteLocalDownload}
+                                isLoading={isLoading}
+                                onPrevious={() => setStep("step1")}
+                                onNext={handleNextFromDownloadStep}
+                            />
+                        </TabsContent>
+                        <TabsContent value="step3">
+                            <SummaryStep
+                                response={response}
+                                downloadLinks={downloadLinks}
+                                onReset={resetForm}
+                            />
+                        </TabsContent>
+                    </Tabs>
 
-            {step === 1 && (
-                <ArticleForm
-                    formData={formData}
-                    handleChange={handleArticleFormChange}
-                    handleFileSelect={handleFileSelect}
-                    handleSubmit={handleSubmitArticle}
-                    isLoading={isLoading}
-                />
-            )}
-
-            {step === 2 && (
-                <DownloadForm
-                    downloadData={downloadData}
-                    handleChange={handleDownloadFormChange}
-                    handleSubmit={handleSubmitDownload}
-                    downloadLinks={downloadLinks}
-                    localDownloads={localDownloads}
-                    onAddLocal={handleAddLocalDownload}
-                    onEditLocal={handleEditLocalDownload}
-                    onDeleteLocal={handleDeleteLocalDownload}
-                    isLoading={isLoading}
-                    onPrevious={() => setStep(1)}
-                    onNext={handleNextFromDownloadStep}
-                />
-            )}
-
-            {step === 3 && (
-                <SummaryStep
-                    response={response}
-                    downloadLinks={downloadLinks}
-                    onReset={resetForm}
-                />
-            )}
-
-            <ErrorAlert message={error} />
-            {isLoading && <LoadingIndicator />}
+                    {error && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertDescription>
+                                {error}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {isLoading && <div className="mt-4">Loading...</div>}
+                </CardContent>
+            </Card>
         </div>
     );
 };

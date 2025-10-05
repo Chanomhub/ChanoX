@@ -1,8 +1,8 @@
 [package]
-name = "ChanoX"
+name = "chanox"
 version = "0.9.6"
 description = "A ChanoX App"
-authors = ["Chnaomhub"]
+authors = ["ChanoX"]
 edition = "2021"
 
 [build-dependencies]

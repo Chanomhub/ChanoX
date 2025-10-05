@@ -2,7 +2,7 @@
 export const fetchArticleDownloads = async (articleId: number): Promise<any[]> => {
     try {
         // Get token from localStorage
-        const token = localStorage.getItem('chanomhub_token');
+        const token = localStorage.getItem('chanox_token');
 
         // Prepare headers
         const headers: HeadersInit = {

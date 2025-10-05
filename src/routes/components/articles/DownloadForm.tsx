@@ -1,5 +1,11 @@
+
 import React, { useState } from 'react';
 import { ArticleDownload, DownloadData } from './types/types.ts';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface LocalDownload {
     id: string; // temporary ID for local state
@@ -36,11 +42,7 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
                                                        onNext,
                                                    }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editData, setEditData] = useState<{
-        name: string;
-        url: string;
-        isActive: boolean;
-    }>({ name: '', url: '', isActive: true });
+    const [editData, setEditData] = useState<{ name: string; url: string; isActive: boolean; }>({ name: '', url: '', isActive: true });
 
     const handleAddLocal = () => {
         if (!downloadData.downloadName.trim() || !downloadData.downloadUrl.trim()) {
@@ -56,32 +58,19 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
         });
 
         // Reset form
-        handleChange({
-            target: { name: 'downloadName', value: '' }
-        } as React.ChangeEvent<HTMLInputElement>);
-        handleChange({
-            target: { name: 'downloadUrl', value: '' }
-        } as React.ChangeEvent<HTMLInputElement>);
-        handleChange({
-            target: { name: 'isActive', checked: true, type: 'checkbox' }
-        } as React.ChangeEvent<HTMLInputElement>);
+        handleChange({ target: { name: 'downloadName', value: '' } } as React.ChangeEvent<HTMLInputElement>);
+        handleChange({ target: { name: 'downloadUrl', value: '' } } as React.ChangeEvent<HTMLInputElement>);
+        handleChange({ target: { name: 'isActive', checked: true, type: 'checkbox' } } as React.ChangeEvent<HTMLInputElement>);
     };
 
     const startEdit = (download: LocalDownload) => {
         setEditingId(download.id);
-        setEditData({
-            name: download.name,
-            url: download.url,
-            isActive: download.isActive,
-        });
+        setEditData({ name: download.name, url: download.url, isActive: download.isActive });
     };
 
     const saveEdit = () => {
         if (editingId) {
-            onEditLocal(editingId, {
-                ...editData,
-                isNew: true,
-            });
+            onEditLocal(editingId, { ...editData, isNew: true });
             setEditingId(null);
             setEditData({ name: '', url: '', isActive: true });
         }
@@ -94,65 +83,29 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
 
     return (
         <div className="p-6">
-            <h2 className="text-2xl font-semibold mb-4">เพิ่มลิงค์ดาวน์โหลด</h2>
+            <Card>
+                <CardHeader>
+                    <CardTitle>เพิ่มลิงค์ดาวน์โหลด</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label htmlFor="downloadName">ชื่อไฟล์</Label>
+                        <Input id="downloadName" name="downloadName" value={downloadData.downloadName} onChange={handleChange} placeholder="เช่น Setup_Game_v1.0.exe" disabled={isLoading} />
+                    </div>
+                    <div>
+                        <Label htmlFor="downloadUrl">URL ดาวน์โหลด</Label>
+                        <Input id="downloadUrl" name="downloadUrl" value={downloadData.downloadUrl} onChange={handleChange} placeholder="https://example.com/download/file.exe" disabled={isLoading} />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="isActive" name="isActive" checked={downloadData.isActive} onCheckedChange={(checked) => handleChange({ target: { name: 'isActive', checked, type: 'checkbox' } } as any)} disabled={isLoading} />
+                        <Label htmlFor="isActive">เปิดใช้งาน</Label>
+                    </div>
+                    <Button type="button" onClick={handleAddLocal} disabled={isLoading}>เพิ่มลิงค์</Button>
+                </CardContent>
+            </Card>
 
-            {/* Add New Download Form */}
-            <div className="bg-base-100 p-4 rounded-lg border mb-6">
-                <h3 className="text-lg font-medium mb-3">เพิ่มลิงค์ใหม่</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">ชื่อไฟล์</label>
-                        <input
-                            type="text"
-                            name="downloadName"
-                            value={downloadData.downloadName}
-                            onChange={handleChange}
-                            className="input input-bordered w-full"
-                            placeholder="เช่น Setup_Game_v1.0.exe"
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">URL ดาวน์โหลด</label>
-                        <input
-                            type="text"
-                            name="downloadUrl"
-                            value={downloadData.downloadUrl}
-                            onChange={handleChange}
-                            className="input input-bordered w-full"
-                            placeholder="https://example.com/download/file.exe"
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div>
-                        <label className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                name="isActive"
-                                checked={downloadData.isActive}
-                                onChange={handleChange}
-                                className="checkbox"
-                                disabled={isLoading}
-                            />
-                            <span>เปิดใช้งาน</span>
-                        </label>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleAddLocal}
-                        className="btn btn-primary"
-                        disabled={isLoading}
-                    >
-                        เพิ่มลิงค์
-                    </button>
-                </div>
-            </div>
-
-            {/* Local Downloads List */}
-            <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">
-                    ลิงค์ดาวน์โหลดที่เพิ่ม ({localDownloads.length})
-                </h3>
+            <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-3">ลิงค์ดาวน์โหลดที่เพิ่ม ({localDownloads.length})</h3>
                 {localDownloads.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                         <p>ยังไม่มีลิงค์ดาวน์โหลด</p>
@@ -161,153 +114,69 @@ const DownloadForm: React.FC<DownloadFormProps> = ({
                 ) : (
                     <div className="space-y-3">
                         {localDownloads.map((download) => (
-                            <div key={download.id} className="p-4 bg-base-200 rounded-lg">
-                                {editingId === download.id ? (
-                                    // Edit Mode
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">ชื่อไฟล์</label>
-                                            <input
-                                                type="text"
-                                                value={editData.name}
-                                                onChange={(e) => setEditData(prev => ({
-                                                    ...prev,
-                                                    name: e.target.value
-                                                }))}
-                                                className="input input-bordered w-full input-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">URL</label>
-                                            <input
-                                                type="text"
-                                                value={editData.url}
-                                                onChange={(e) => setEditData(prev => ({
-                                                    ...prev,
-                                                    url: e.target.value
-                                                }))}
-                                                className="input input-bordered w-full input-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="flex items-center space-x-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={editData.isActive}
-                                                    onChange={(e) => setEditData(prev => ({
-                                                        ...prev,
-                                                        isActive: e.target.checked
-                                                    }))}
-                                                    className="checkbox checkbox-sm"
-                                                />
-                                                <span className="text-sm">เปิดใช้งาน</span>
-                                            </label>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={saveEdit}
-                                                className="btn btn-success btn-sm"
-                                            >
-                                                บันทึก
-                                            </button>
-                                            <button
-                                                onClick={cancelEdit}
-                                                className="btn btn-ghost btn-sm"
-                                            >
-                                                ยกเลิก
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // View Mode
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-medium text-lg">{download.name}</h4>
-                                                <span className={`badge badge-sm ${
-                                                    download.isActive ? 'badge-success' : 'badge-error'
-                                                }`}>
-                                                    {download.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                                                </span>
-                                                {download.isNew && (
-                                                    <span className="badge badge-warning badge-sm">
-                                                        ยังไม่บันทึก
-                                                    </span>
-                                                )}
+                            <Card key={download.id}>
+                                <CardContent className="p-4">
+                                    {editingId === download.id ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <Label>ชื่อไฟล์</Label>
+                                                <Input value={editData.name} onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))} />
                                             </div>
-                                            <p className="text-sm text-gray-600 break-all">{download.url}</p>
+                                            <div>
+                                                <Label>URL</Label>
+                                                <Input value={editData.url} onChange={(e) => setEditData(prev => ({ ...prev, url: e.target.value }))} />
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox checked={editData.isActive} onCheckedChange={(checked) => setEditData(prev => ({ ...prev, isActive: !!checked }))} />
+                                                <Label>เปิดใช้งาน</Label>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button onClick={saveEdit} size="sm">บันทึก</Button>
+                                                <Button onClick={cancelEdit} variant="ghost" size="sm">ยกเลิก</Button>
+                                            </div>
                                         </div>
-                                        <div className="flex gap-2 ml-4">
-                                            <button
-                                                onClick={() => startEdit(download)}
-                                                className="btn btn-ghost btn-sm"
-                                                disabled={isLoading}
-                                            >
-                                                แก้ไข
-                                            </button>
-                                            <button
-                                                onClick={() => onDeleteLocal(download.id)}
-                                                className="btn btn-error btn-sm"
-                                                disabled={isLoading}
-                                            >
-                                                ลบ
-                                            </button>
+                                    ) : (
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <h4 className="font-medium text-lg">{download.name}</h4>
+                                                <p className="text-sm text-gray-600 break-all">{download.url}</p>
+                                            </div>
+                                            <div className="flex gap-2 ml-4">
+                                                <Button onClick={() => startEdit(download)} variant="ghost" size="sm" disabled={isLoading}>แก้ไข</Button>
+                                                <Button onClick={() => onDeleteLocal(download.id)} variant="destructive" size="sm" disabled={isLoading}>ลบ</Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         ))}
                     </div>
                 )}
             </div>
 
-            {/* Existing Server Downloads (if any) */}
             {downloadLinks.length > 0 && (
-                <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-3">
-                        ลิงค์ที่บันทึกแล้ว ({downloadLinks.length})
-                    </h3>
+                <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-3">ลิงค์ที่บันทึกแล้ว ({downloadLinks.length})</h3>
                     <div className="space-y-3">
                         {downloadLinks.map((download) => (
-                            <div key={download.id} className="p-4 bg-green-50 rounded-lg border border-green-200">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
+                            <Card key={download.id}>
+                                <CardContent className="p-4">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
                                             <h4 className="font-medium text-lg">{download.name}</h4>
-                                            <span className={`badge badge-sm ${
-                                                download.isActive ? 'badge-success' : 'badge-error'
-                                            }`}>
-                                                {download.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                                            </span>
-                                            <span className="badge badge-success badge-sm">
-                                                บันทึกแล้ว
-                                            </span>
+                                            <p className="text-sm text-gray-600 break-all">{download.url}</p>
                                         </div>
-                                        <p className="text-sm text-gray-600 break-all">{download.url}</p>
                                     </div>
-                                </div>
-                            </div>
+                                </CardContent>
+                            </Card>
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* Navigation */}
             <div className="flex justify-between mt-6">
-                <button
-                    onClick={onPrevious}
-                    className="btn btn-secondary"
-                    disabled={isLoading}
-                >
-                    ก่อนหน้า
-                </button>
-                <button
-                    onClick={onNext}
-                    className="btn btn-primary"
-                    disabled={isLoading}
-                >
-                    ถัดไป ({localDownloads.length} รายการรอบันทึก)
-                </button>
+                <Button onClick={onPrevious} variant="secondary" disabled={isLoading}>ก่อนหน้า</Button>
+                <Button onClick={onNext} disabled={isLoading}>ถัดไป ({localDownloads.length} รายการรอบันทึก)</Button>
             </div>
         </div>
     );
