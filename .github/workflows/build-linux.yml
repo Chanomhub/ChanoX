@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [x64, arm64]
+        arch: [x64]  # ปิด arm64 ชั่วคราวเนื่องจาก cross-compilation ซับซ้อน
+        # arch: [x64, arm64]
 
     steps:
       - name: Checkout code
