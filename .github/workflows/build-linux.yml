@@ -110,7 +110,8 @@ jobs:
           mkdir -p upload_artifacts
           shopt -s globstar || true
           found=0
-          for f in src-tauri/target/**/bundle/**/*.{AppImage,deb}; do
+          # แก้ไข: เพิ่ม rpm ในรายการไฟล์ที่ต้องการค้นหา
+          for f in src-tauri/target/**/bundle/**/*.{AppImage,deb,rpm}; do
             if [ -f "$f" ]; then
               found=1
               filename=$(basename "$f")

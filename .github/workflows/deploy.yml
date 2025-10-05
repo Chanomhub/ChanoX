@@ -41,14 +41,11 @@ jobs:
 
           mkdir -p release_files
 
-          # Find known installer file types anywhere under artifacts/ (recursive)
-          # and copy while avoiding name collisions by prefixing with artifact directory
           find artifacts -type f \( -iname "*.deb" -o -iname "*.rpm" -o -iname "*.appimage" -o -iname "*.msi" -o -iname "*.nsis" -o -iname "*.app" -o -iname "*.dmg" -o -iname "*.exe" -o -name "*.sha256" \) -print0 | while IFS= read -r -d '' file; do
             artdir=$(basename "$(dirname "$file")")
             filename=$(basename "$file")
             dest="release_files/$filename"
 
-            # If filename collision, try prefixed name(s)
             if [ -f "$dest" ]; then
               dest="release_files/${artdir}-$filename"
               if [ -f "$dest" ]; then
@@ -61,17 +58,15 @@ jobs:
             fi
 
             cp "$file" "$dest"
-            echo "✓ Copied: $file -> $dest"
+            echo "✅ Copied: $file -> $dest"
           done
 
-          # If nothing was copied (maybe artifacts use unexpected names), fallback to copying everything except .no_* markers
           if [ -z "$(ls -A release_files 2>/dev/null)" ]; then
-            echo "⚠ No known installers found; falling back to copying any artifact files (excluding .no_* markers)"
+            echo "⚠️ No known installers found; falling back to copying any artifact files (excluding .no_* markers)"
             find artifacts -type f ! -name ".no_*" -print0 | while IFS= read -r -d '' file; do
               filename=$(basename "$file")
               dest="release_files/$filename"
               if [ -f "$dest" ]; then
-                # avoid overwrite by prefixing with artifact dir
                 artdir=$(basename "$(dirname "$file")")
                 dest="release_files/${artdir}-$filename"
                 if [ -f "$dest" ]; then
@@ -83,7 +78,7 @@ jobs:
                 fi
               fi
               cp "$file" "$dest"
-              echo "✓ Fallback copied: $file -> $dest"
+              echo "✅ Fallback copied: $file -> $dest"
             done
           fi
 
@@ -95,7 +90,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # If triggered by a tag push, use that tag. Otherwise create a dated nightly name.
           if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             echo "NAME=${TAG_NAME}" >> $GITHUB_ENV
@@ -117,7 +111,6 @@ jobs:
           set -euo pipefail
           RELEASE_NAME="${{ env.NAME }}"
 
-          # Use gh to check if release exists; set output accordingly
           if gh release view "$RELEASE_NAME" >/dev/null 2>&1; then
             echo "EXISTS=true" >> $GITHUB_OUTPUT
             echo "🔄 Found existing nightly release: $RELEASE_NAME - will update it"
@@ -134,7 +127,6 @@ jobs:
           set -euo pipefail
           RELEASE_NAME="${{ env.NAME }}"
           echo "🗑️ Deleting existing release and tag: $RELEASE_NAME"
-          # delete release via gh (ignore errors) and delete tag remotely
           gh release delete "$RELEASE_NAME" --yes || true
           git push origin --delete "$RELEASE_NAME" || true
         env:
@@ -145,19 +137,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # If this is a tag push, take the previous non-nightly tag; otherwise take the latest tag
           if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | sed -n '1,2p' | sed -n '2p' || true)
           else
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^nightly-" | sed -n '1p' || true)
           fi
 
-          # fallback to first commit if no suitable tag found
           if [ -z "${PREV_TAG:-}" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
 
-          # trim whitespace and export
           PREV_TAG=$(echo "$PREV_TAG" | tr -d '\n' | sed -e 's/^\s*//' -e 's/\s*$//')
           echo "PREVIOUS_TAG=$PREV_TAG" >> $GITHUB_OUTPUT
           echo "Previous tag: $PREV_TAG"
@@ -171,7 +160,6 @@ jobs:
           CURRENT_TAG="${{ env.NAME }}"
           PREV_TAG="${{ steps.previous_tag.outputs.PREVIOUS_TAG }}"
 
-          # Get recent commits between previous tag and HEAD (limit to 50 lines to be safe)
           if git rev-parse --verify "$PREV_TAG" >/dev/null 2>&1; then
             COMMITS=$(git --no-pager log --oneline --no-merges "$PREV_TAG..HEAD" | head -n 50 || echo "No changes found")
           else
@@ -179,9 +167,73 @@ jobs:
           fi
 
           if [[ "${{ env.IS_NIGHTLY }}" == "true" ]]; then
-            CHANGELOG="## 🌙 Nightly Build - $(date +'%Y-%m-%d')\n\nThis is an automated nightly build from the latest \`main\` branch.\n\n**⚠️ Warning**: Nightly builds may contain unstable features and bugs.\n\n**Recent Changes**:\n$COMMITS\n\n**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...main\n\n---\n\n### 📦 Downloads\n\nChoose the appropriate installer for your operating system:\n\n**Windows:**\n- \\.msi - Windows installer\n- \\.nsis - Windows installer (NSIS)\n- \\.exe - Windows portable (if available)\n\n**macOS (Apple Silicon / Intel):**\n- \\.dmg - macOS installer\n- \\.app - macOS app bundle (if available)\n\n**Linux:**\n- \\.deb - Debian/Ubuntu package\n- \\.rpm - RedHat/Fedora package\n- \\.AppImage - Universal Linux application\n"
+            CHANGELOG=$(cat <<'EOF'
+          ## 🌙 Nightly Build - $(date +'%Y-%m-%d')
+
+          This is an automated nightly build from the latest `main` branch.
+
+          **⚠️ Warning**: Nightly builds may contain unstable features and bugs.
+
+          ### Recent Changes
+
+          $(echo "$COMMITS")
+
+          **Full Changelog**: https://github.com/$(echo "$REPO")/compare/$(echo "$PREV_TAG")...main
+
+          ---
+
+          ## 📦 Downloads
+
+          Choose the appropriate installer for your operating system:
+
+          ### Windows
+          - **.msi** - Windows installer (recommended)
+          - **.nsis** - Windows installer (NSIS)
+          - **.exe** - Windows portable (if available)
+
+          ### macOS (Apple Silicon / Intel)
+          - **.dmg** - macOS installer (recommended)
+          - **.app** - macOS app bundle (if available)
+
+          ### Linux
+          - **.deb** - Debian/Ubuntu package
+          - **.rpm** - RedHat/Fedora/openSUSE package
+          - **.AppImage** - Universal Linux application (no installation required)
+          EOF
+          )
+            CHANGELOG=$(eval "echo \"$CHANGELOG\"")
           else
-            CHANGELOG="## 🚀 What's Changed\n\n**Recent Changes**:\n$COMMITS\n\n**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${CURRENT_TAG}\n\n---\n\n### 📦 Downloads\n\nChoose the appropriate installer for your operating system:\n\n**Windows:**\n- \\.msi - Windows installer\n- \\.nsis - Windows installer (NSIS)\n- \\.exe - Windows portable (if available)\n\n**macOS (Apple Silicon / Intel):**\n- \\.dmg - macOS installer\n- \\.app - macOS app bundle (if available)\n\n**Linux:**\n- \\.deb - Debian/Ubuntu package\n- \\.rpm - RedHat/Fedora package\n- \\.AppImage - Universal Linux application\n"
+            CHANGELOG=$(cat <<'EOF'
+          ## 🚀 What's Changed
+
+          ### Recent Changes
+
+          $(echo "$COMMITS")
+
+          **Full Changelog**: https://github.com/$(echo "$REPO")/compare/$(echo "$PREV_TAG")...$(echo "$CURRENT_TAG")
+
+          ---
+
+          ## 📦 Downloads
+
+          Choose the appropriate installer for your operating system:
+
+          ### Windows
+          - **.msi** - Windows installer (recommended)
+          - **.nsis** - Windows installer (NSIS)
+          - **.exe** - Windows portable (if available)
+
+          ### macOS (Apple Silicon / Intel)
+          - **.dmg** - macOS installer (recommended)
+          - **.app** - macOS app bundle (if available)
+
+          ### Linux
+          - **.deb** - Debian/Ubuntu package
+          - **.rpm** - RedHat/Fedora/openSUSE package
+          - **.AppImage** - Universal Linux application (no installation required)
+          EOF
+          )
+            CHANGELOG=$(eval "echo \"$CHANGELOG\"")
           fi
 
           {
