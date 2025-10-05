@@ -187,7 +187,7 @@ const ArticleForm: React.FC<ArticleFormProps> = ({
                         </div>
                         <div>
                             <Label htmlFor="engine">Engine</Label>
-                            <Select name="engine" value={formData.engine || 'none'} onValueChange={(value) => handleChange({ target: { name: 'engine', value: value === 'none' ? '' : value } } as any)}>
+                            <Select name="engine" value={formData.engine || 'none'} onValueChange={(value: string) => handleChange({ target: { name: 'engine', value: value === 'none' ? '' : value } } as any)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="ไม่ระบุ" />
                                 </SelectTrigger>
