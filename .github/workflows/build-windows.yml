@@ -26,6 +26,23 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          Write-Host "Installing project dependencies..."
+          bun install
+          Write-Host "✅ Dependencies installed"
+
       - name: Install Rust Target
         shell: pwsh
         run: |
@@ -40,16 +57,6 @@ jobs:
           }
           Write-Host "`nInstalled targets:"
           rustup target list --installed
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
 
       - name: Cache Rust
         uses: actions/cache@v4
