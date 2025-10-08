@@ -6,6 +6,7 @@
 mod archiver;
 mod api;
 mod commands;
+mod downloadmanager;
 mod downloads;
 mod games;
 mod plugin;
@@ -18,12 +19,41 @@ use crate::types::{ActiveDownloads, PluginRegistry};
 use crate::utils::get_plugins_path;
 use std::sync::{Mutex, RwLock};
 use tauri::Manager;
+use tauri::{
+    webview::{DownloadEvent, WebviewWindowBuilder},
+    WebviewUrl,
+};
+use uuid;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            let handle = app.handle();
+            let config_window = app.config().app.windows.get(0).unwrap().clone();
+            let _webview_window = WebviewWindowBuilder::from_config(handle, &config_window)?
+                .on_download(|_webview, event| {
+                    if let DownloadEvent::Requested { url, .. } = event {
+                        let app_handle = _webview.app_handle();
+                        let download_id = uuid::Uuid::new_v4().to_string();
+                        let filename = url.path_segments().and_then(|s| s.last()).unwrap_or("unknown_file").to_string();
+
+                        let fut = commands::download_file(
+                            app_handle.clone(),
+                            download_id,
+                            url.to_string(),
+                            filename,
+                        );
+                        
+                        tauri::async_runtime::spawn(fut);
+
+                        return false;
+                    }
+                    true
+                })
+                .build()?;
+
             // Initialize app state
             let app_state = load_state_from_file(app.handle()).unwrap_or_default();
             app.manage(Mutex::new(app_state));
@@ -67,6 +97,7 @@ fn main() {
             commands::fetch_article_by_slug,
             
             // Downloads
+            commands::download_file,
             commands::unarchive_file,
             commands::get_active_downloads,
             commands::register_manual_download,

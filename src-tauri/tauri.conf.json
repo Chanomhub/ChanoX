@@ -15,7 +15,8 @@
         "fullscreen": true,
         "resizable": true,
         "title": "ChanoX",
-        "label": "main"
+        "label": "main",
+        "create": false
       }
     ],
     "security": {
@@ -23,6 +24,9 @@
     }
   },
   "plugins": {
+    "window": {
+      "create": true
+    },
     "updater": {
       "endpoints": [
         "https://raw.githubusercontent.com/ChanoX/ChanoX-Desktop/main/latest.json"

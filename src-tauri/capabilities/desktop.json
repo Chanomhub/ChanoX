@@ -9,6 +9,7 @@
     "main"
   ],
   "permissions": [
-    "updater:default"
+    "notification:allow-show",
+    "core:webview:allow-create-webview-window"
   ]
 }

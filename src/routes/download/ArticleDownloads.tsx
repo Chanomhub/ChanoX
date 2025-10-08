@@ -1,59 +1,87 @@
-import { useState } from "react";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useState, useEffect } from "react";
 import { ArticleDownload } from "../components/articles/types/types.ts";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { open } from "@tauri-apps/plugin-shell";
-import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
-import * as fs from "@tauri-apps/plugin-fs";
-import { join } from '@tauri-apps/api/path';
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { message } from '@tauri-apps/plugin-dialog';
+
+interface DownloadProgressEvent {
+    downloadId: string;
+    status: 'starting' | 'downloading' | 'completed' | 'failed';
+    progress?: number;
+    path?: string;
+    error?: string;
+}
 
 export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ downloads }) => {
     const [downloadStatus, setDownloadStatus] = useState<{ [key: string]: string }>({});
     const [downloadProgress, setDownloadProgress] = useState<{ [key: string]: number }>({});
 
+    useEffect(() => {
+        const unlisten = listen<DownloadProgressEvent>('download://progress', (event) => {
+            const { downloadId, status, progress, error } = event.payload;
+
+            setDownloadStatus((prev) => ({ ...prev, [downloadId]: status }));
+            if (progress !== undefined) {
+                setDownloadProgress((prev) => ({ ...prev, [downloadId]: progress }));
+            }
+
+            if (status === 'failed') {
+                console.error(`Download ${downloadId} failed:`, error);
+            }
+        });
+
+        return () => {
+            unlisten.then(f => f());
+        };
+    }, []);
+
     const handleDownload = async (download: ArticleDownload) => {
-        if (!download.isActive || download.status !== 'APPROVED') return;
+        if (!download.isActive || download.status !== 'APPROVED') {
+            return;
+        }
 
         const downloadId = `article_download_${download.id}`;
-        try {
-            setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังเปิดเบราว์เซอร์...' }));
-            setDownloadProgress((prev) => ({ ...prev, [downloadId]: 0 }));
+        const lowerCaseName = download.name.toLowerCase();
+        const isExternal = ['mega', 'jottacloud', 'mediafire', 'dropbox'].some(provider => lowerCaseName.includes(provider));
 
-            await open(download.url);
+        if (isExternal) {
+            // External link: Open in a new webview window
+            try {
 
-            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `เปิดในเบราว์เซอร์แล้ว` }));
-            setDownloadProgress((prev) => ({ ...prev, [downloadId]: 100 }));
+                const webview = new WebviewWindow(`download-${download.id}-${Date.now()}`, {
+                    url: download.url,
+                    title: `Downloading ${download.name}`,
+                    width: 800,
+                    height: 600,
+                });
 
-        } catch (error) {
-            console.error("Error opening external link:", error);
-            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `ข้อผิดพลาด: ${String(error)}` }));
-        }
-    };
-
-    const handleMoveDownloadedFile = async (downloadId: string, suggestedFileName: string) => {
-        try {
-            const selectedPath = await openFileDialog({
-                multiple: false,
-                directory: false,
-                title: `เลือกไฟล์ ${suggestedFileName} ที่ดาวน์โหลดแล้ว`,
-            });
-
-            if (selectedPath && typeof selectedPath === 'string') {
-                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'กำลังย้ายไฟล์...' }));
-                const appDownloadsPath = await invoke<string>("get_download_dir");
-                const destinationPath = await join(appDownloadsPath, suggestedFileName);
-
-                await fs.copyFile(selectedPath, destinationPath);
-                await fs.remove(selectedPath);
-
-                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'ย้ายไฟล์สำเร็จ' }));
-            } else {
-                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'ยกเลิกการย้ายไฟล์' }));
+                webview.once('tauri://created', function () {
+                    setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'เปิดในหน้าต่างใหม่แล้ว' }));
+                });
+                webview.once('tauri://error', function (e) {
+                    setDownloadStatus((prev) => ({ ...prev, [downloadId]: `เกิดข้อผิดพลาดในการเปิดหน้าต่าง: ${e.payload}` }));
+                });
+            } catch (error) {
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: `เกิดข้อผิดพลาด: ${String(error)}` }));
             }
-        } catch (error) {
-            console.error("Error moving file:", error);
-            setDownloadStatus((prev) => ({ ...prev, [downloadId]: `ข้อผิดพลาดในการย้ายไฟล์: ${String(error)}` }));
+        } else {
+            // Internal link: Use native download
+            try {
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: 'starting' }));
+                setDownloadProgress((prev) => ({ ...prev, [downloadId]: 0 }));
+
+                await invoke("download_file", {
+                    downloadId,
+                    url: download.url,
+                    filename: download.name,
+                });
+
+            } catch (error) {
+                setDownloadStatus((prev) => ({ ...prev, [downloadId]: `ข้อผิดพลาด: ${String(error)}` }));
+            }
         }
     };
 
@@ -66,35 +94,39 @@ export const ArticleDownloads: React.FC<{ downloads: ArticleDownload[] }> = ({ d
                 ) : (
                     downloads.map((download) => {
                         const downloadId = `article_download_${download.id}`;
-                        const isDownloading = downloadStatus[downloadId]?.includes('กำลังเปิดเบราว์เซอร์');
+                        const status = downloadStatus[downloadId];
+                        const progress = downloadProgress[downloadId];
+                        const isNativeDownloading = status === 'starting' || status === 'downloading';
+                        const isCompleted = status === 'completed';
+                        const isWindowOpened = status === 'เปิดในหน้าต่างใหม่แล้ว';
+
+                        let buttonText = 'ดาวน์โหลด';
+                        if (isNativeDownloading) {
+                            buttonText = `กำลังดาวน์โหลด... ${progress || 0}%`;
+                        } else if (isCompleted) {
+                            buttonText = 'ดาวน์โหลดเสร็จแล้ว';
+                        } else if (isWindowOpened) {
+                            buttonText = 'เปิดในหน้าต่างใหม่แล้ว';
+                        }
 
                         return (
                             <div key={download.id} className="p-4 border rounded-lg flex justify-between items-center">
                                 <div>
                                     <p className="font-medium">{download.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        สถานะ: {downloadStatus[downloadId] || 'พร้อมดาวน์โหลด'}
+                                        สถานะ: {status || 'พร้อมดาวน์โหลด'}
                                     </p>
-                                    {downloadProgress[downloadId] > 0 && downloadProgress[downloadId] < 100 && (
-                                        <Progress value={downloadProgress[downloadId]} className="w-full mt-2" />
+                                    {isNativeDownloading && progress !== undefined && (
+                                        <Progress value={progress} className="w-full mt-2" />
                                     )}
                                 </div>
-                                <div className="flex space-x-2">
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleDownload(download)}
-                                        disabled={isDownloading}
-                                    >
-                                        {isDownloading ? 'กำลังเปิด...' : 'ดาวน์โหลด'}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleMoveDownloadedFile(downloadId, download.name)}
-                                    >
-                                        ย้ายไฟล์ที่ดาวน์โหลดแล้ว
-                                    </Button>
-                                </div>
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleDownload(download)}
+                                    disabled={isNativeDownloading || isCompleted || isWindowOpened}
+                                >
+                                    {buttonText}
+                                </Button>
                             </div>
                         );
                     })

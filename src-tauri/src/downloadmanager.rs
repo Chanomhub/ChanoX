@@ -1,5 +1,6 @@
 // downloadmanager.rs
-use crate::plugin::{PluginManifest, execute_plugin as plugin_execute_plugin};
+use crate::plugin::{execute_plugin as plugin_execute_plugin};
+use crate::types::PluginManifest;
 use serde_json::Value;
 use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;

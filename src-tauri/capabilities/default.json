@@ -17,6 +17,8 @@
     "updater:allow-download-and-install",
     "notification:allow-is-permission-granted",
     "notification:default",
-    "fs:allow-copy-file"
+    "fs:allow-copy-file",
+    "core:window:allow-create",
+    "core:webview:allow-create-webview-window"
   ]
 }

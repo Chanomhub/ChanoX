@@ -18,6 +18,7 @@ sha1 = "0.10"
 chrono = "0.4"
 hex = "0.4"
 tauri-plugin-dialog = "2.4.0"
+
 futures-util = "0.3.31"
 # wry = "0.47"
 mega = "0.8.0"

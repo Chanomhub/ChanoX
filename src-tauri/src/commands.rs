@@ -1,11 +1,17 @@
+use crate::downloadmanager;
 use crate::state::{save_state_to_file, AppState, ArticleResponse, DownloadedGameInfo, LaunchConfig};
 use crate::types::{ActiveDownloads, DownloadInfo, PluginManifest, PluginRegistry};
 use crate::utils::{is_path_directory, path_exists};
+use futures_util::StreamExt;
+use reqwest::Client;
 use std::fs;
 use std::path::Path;
 use std::process::Command as StdCommand;
 use std::sync::{Mutex, RwLock};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+use tokio_util::sync::CancellationToken;
 
 // Basic utility commands
 #[tauri::command]
@@ -225,6 +231,202 @@ pub fn remove_plugin(
 }
 
 // Download commands
+#[tauri::command]
+pub async fn download_file(
+    app: AppHandle,
+    download_id: String,
+    url: String,
+    filename: String,
+) -> Result<(), String> {
+    let host = url::Url::parse(&url)
+        .map_err(|e| e.to_string())?
+        .host_str()
+        .ok_or("No host in URL")?
+        .to_string();
+
+    let plugin_registry = app.state::<Mutex<PluginRegistry>>();
+    let registry = plugin_registry.lock().map_err(|e| e.to_string())?;
+    let plugin = registry
+        .find_plugin_for_action("download", Some(&host))
+        .cloned();
+
+    if let Some(plugin) = plugin {
+        // Plugin found, use it
+        let cancel_token = CancellationToken::new();
+        let input = serde_json::json!({ "url": url });
+
+        let app_clone = app.clone();
+        let download_id_clone = download_id.clone();
+
+        app.emit(
+            "download://progress",
+            serde_json::json!({
+                "downloadId": download_id,
+                "status": "starting",
+                "progress": 0,
+            }),
+        )
+        .map_err(|e| e.to_string())?;
+
+        tokio::spawn(async move {
+            let result = downloadmanager::execute_plugin(&plugin, "download", input, &app_clone, cancel_token).await;
+
+            match result {
+                Ok(downloaded_path) => {
+                    app_clone
+                        .emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "completed",
+                                "progress": 100,
+                                "path": downloaded_path,
+                            }),
+                        )
+                        .ok();
+                }
+                Err(e) => {
+                    app_clone
+                        .emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "failed",
+                                "error": format!("{:?}", e),
+                            }),
+                        )
+                        .ok();
+                }
+            }
+        });
+use futures_util::StreamExt;
+use reqwest::Client;
+use std::io::Write;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+
+// ... imports
+
+// ... in download_file function
+    } else {
+        // No plugin found, handle as a direct download or error out
+        if host.ends_with("chanomhub.online") {
+            let app_clone = app.clone();
+            let download_id_clone = download_id.clone();
+
+            tokio::spawn(async move {
+                let download_dir = match get_download_dir(app_clone.clone()) {
+                    Ok(dir) => dir,
+                    Err(e) => {
+                        app_clone.emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "failed",
+                                "error": e,
+                            }),
+                        ).ok();
+                        return;
+                    }
+                };
+
+                let file_path = std::path::Path::new(&download_dir).join(&filename);
+
+                let client = Client::new();
+                let res = match client.get(&url).send().await {
+                    Ok(res) => res,
+                    Err(e) => {
+                        app_clone.emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "failed",
+                                "error": e.to_string(),
+                            }),
+                        ).ok();
+                        return;
+                    }
+                };
+
+                let total_size = res.content_length().unwrap_or(0);
+                let mut file = match File::create(&file_path).await {
+                    Ok(file) => file,
+                    Err(e) => {
+                        app_clone.emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "failed",
+                                "error": e.to_string(),
+                            }),
+                        ).ok();
+                        return;
+                    }
+                };
+
+                let mut stream = res.bytes_stream();
+                let mut downloaded: u64 = 0;
+
+                while let Some(item) = stream.next().await {
+                    let chunk = match item {
+                        Ok(chunk) => chunk,
+                        Err(e) => {
+                            app_clone.emit(
+                                "download://progress",
+                                serde_json::json!({
+                                    "downloadId": download_id_clone,
+                                    "status": "failed",
+                                    "error": e.to_string(),
+                                }),
+                            ).ok();
+                            return;
+                        }
+                    };
+                    if let Err(e) = file.write_all(&chunk).await {
+                        app_clone.emit(
+                            "download://progress",
+                            serde_json::json!({
+                                "downloadId": download_id_clone,
+                                "status": "failed",
+                                "error": e.to_string(),
+                            }),
+                        ).ok();
+                        return;
+                    }
+                    downloaded += chunk.len() as u64;
+                    let progress = if total_size > 0 {
+                        (downloaded as f32 / total_size as f32) * 100.0
+                    } else {
+                        0.0 // Indeterminate
+                    };
+                    app_clone.emit(
+                        "download://progress",
+                        serde_json::json!({
+                            "downloadId": download_id_clone,
+                            "status": "downloading",
+                            "progress": progress,
+                        }),
+                    ).ok();
+                }
+
+                app_clone.emit(
+                    "download://progress",
+                    serde_json::json!({
+                        "downloadId": download_id_clone,
+                        "status": "completed",
+                        "progress": 100.0,
+                        "path": file_path.to_str().unwrap(),
+                    }),
+                ).ok();
+            });
+        } else {
+            return Err(format!("Plugin not found for provider: {}", host));
+        }
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn unarchive_file(
     file_path: String,
