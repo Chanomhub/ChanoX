@@ -103,7 +103,7 @@ jobs:
       - name: Security Scan
         run: |
           cd src-tauri
-          cargo install cargo-audit
+          cargo install cargo-audit --force
           cargo audit || echo "Warning: Security scan issues detected"
           cd ..
 
