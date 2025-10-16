@@ -31,7 +31,7 @@ jobs:
         include:
         # Rust analysis for Tauri backend (src-tauri/)
         - language: rust
-          build-mode: autobuild
+          build-mode: manual
         
         # JavaScript/TypeScript analysis for React frontend (src/)
         - language: javascript-typescript
@@ -93,7 +93,7 @@ jobs:
 
     # Build Rust code manually if autobuild fails
     - name: Build Rust (Tauri)
-      if: matrix.language == 'rust' && matrix.build-mode == 'manual'
+      if: matrix.language == 'rust'
       working-directory: src-tauri
       run: |
         cargo build --release
