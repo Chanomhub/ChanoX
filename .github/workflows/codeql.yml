@@ -45,6 +45,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # Install pnpm FIRST (before setup-node)
+    - name: Install pnpm
+      if: matrix.language == 'javascript-typescript'
+      uses: pnpm/action-setup@v4
+      with:
+        version: 8
+
     # Setup Node.js for TypeScript/React dependencies
     - name: Setup Node.js
       if: matrix.language == 'javascript-typescript'
@@ -52,13 +59,6 @@ jobs:
       with:
         node-version: '20'
         cache: 'pnpm'
-
-    # Install pnpm for dependency management
-    - name: Install pnpm
-      if: matrix.language == 'javascript-typescript'
-      uses: pnpm/action-setup@v4
-      with:
-        version: 8
 
     # Setup Rust toolchain for Tauri backend
     - name: Setup Rust
@@ -77,7 +77,7 @@ jobs:
       if: matrix.language == 'rust' && runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libayatana-appindicator3-dev
 
     # Initialize CodeQL
     - name: Initialize CodeQL
