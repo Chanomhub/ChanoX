@@ -58,7 +58,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'pnpm'
+        # Only enable cache if pnpm-lock.yaml exists
+        cache: ${{ hashFiles('**/pnpm-lock.yaml') != '' && 'pnpm' || '' }}
 
     # Setup Rust toolchain for Tauri backend
     - name: Setup Rust
@@ -77,7 +78,9 @@ jobs:
       if: matrix.language == 'rust' && runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libayatana-appindicator3-dev
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf
+        # Try to install appindicator (prefer ayatana, fallback to legacy)
+        sudo apt-get install -y libayatana-appindicator3-dev || sudo apt-get install -y libappindicator3-dev
 
     # Initialize CodeQL
     - name: Initialize CodeQL
