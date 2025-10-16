@@ -31,7 +31,7 @@ jobs:
         include:
         # Rust analysis for Tauri backend (src-tauri/)
         - language: rust
-          build-mode: manual
+          build-mode: none
         
         # JavaScript/TypeScript analysis for React frontend (src/)
         - language: javascript-typescript
@@ -90,13 +90,6 @@ jobs:
         build-mode: ${{ matrix.build-mode }}
         # Uncomment to use custom queries
         # queries: security-extended,security-and-quality
-
-    # Build Rust code manually if autobuild fails
-    - name: Build Rust (Tauri)
-      if: matrix.language == 'rust'
-      working-directory: src-tauri
-      run: |
-        cargo build --release
 
     # Perform CodeQL Analysis
     - name: Perform CodeQL Analysis
