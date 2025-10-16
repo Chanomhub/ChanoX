@@ -1,4 +1,4 @@
-
+[![CodeQL](https://github.com/Chanomhub/ChanoX/workflows/CodeQL%20Advanced/badge.svg)](https://github.com/Chanomhub/ChanoX/actions/workflows/codeql-analysis.yml)
 
 ## Features
 
