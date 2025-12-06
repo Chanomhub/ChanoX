@@ -2,14 +2,17 @@
 
 
 
-# โปรเจกต์ชื่อเดิม (หยุดพัฒนาแล้ว)
+<div align="center">
+📁 Legacy Project (Archived)
 
-⚠️ **โปรเจกต์นี้ถูก archive และหยุดพัฒนาตั้งแต่ [วันที่]**
+⚠️ This project has been archived and development officially ended on 12/6/25.
+Please upgrade to ChanoX2, a fully rewritten and improved version.
 
-→ ไปใช้เวอร์ชั่น 2 ตัวใหม่ที่เขียนใหม่ทั้งหมดแทนนะครับ  
-👉 [https://github.com/Chanomhub/ChanoX2](https://github.com/Chanomhub/ChanoX2)
+👉 https://github.com/Chanomhub/ChanoX2
 
-ขอบคุณทุกคนที่เคยใช้เวอร์ชั่นเก่ามาก ๆ นะครับ ❤️
+Thank you to everyone who supported the previous version ❤️
+
+</div>
 
 
 ## Features
